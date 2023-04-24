@@ -1,0 +1,14 @@
+[project]
+    name = 'qram'
+    version = '0.0'
+    dependencies = [
+        'requests',
+    ]
+
+[project.scripts]
+    qram = 'qram.__main__:_main'
+
+[project.optional-dependencies]
+    dev = [
+        'mypy',
+    ]
