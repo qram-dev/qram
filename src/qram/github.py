@@ -1,4 +1,5 @@
 import logging
+from typing import NamedTuple
 
 from requests import get, post, put, Response
 
@@ -52,10 +53,21 @@ class Github:
         logging.info(f'created PR: {r.json().get("html_url")}')
         return r
 
-    def get_pr(self, pr: int) -> str:
+    def get_pr(self, pr: int) -> 'Pr':
         r = self.get(f'pulls/{pr}')
         j = r.json()
         head = j.get('head', dict()).get('ref')
         if not head:
             raise RuntimeError('no head')
-        return head, j['title']
+        return Pr(
+            number=pr,
+            title=j['title'],
+            description=j['description'],
+            branch_head=head,
+        )
+
+class Pr(NamedTuple):
+    number: int
+    title: str
+    description: str
+    branch_head: str

@@ -52,25 +52,32 @@ def main(args: Args) -> None:
         gh.create_pr(args.create_pr, f'manually merge {args.create_pr}').json()
 
     if args.prepare:
-        branch, title = gh.get_pr(args.prepare)
-        with git.switched_branch(branch, ''):
-            git.check_call(['git', 'rebase', 'merge-queue'])
-        with git.switched_branch('merge-queue', ''):
-            git.check_call(['git', 'merge', branch, '--cleanup=whitespace', '--no-ff', '-m', f'#{args.prepare}: {title}'])
-        git.push('merge-queue')
+        prepare(args.prepare, gh)
 
     if args.merge:
-        pr, mergecommit = args.merge
-        branch, _ = gh.get_pr(int(pr))
-        # switch in case we are currently on moving branch
-        with git.switched_branch(mergecommit, ''):
-            git.check_call(['git', 'branch', 'main', '-f', mergecommit])
-        git.push(branch, True)
-        git.push('main')
+        pr_num, mergecommit = args.merge
+        merge(int(pr_num), mergecommit, gh)
+
+def merge(pr_num: int, mergecommit: str, gh: Github) -> None:
+    pr = gh.get_pr(pr_num)
+    # switch in case we are currently on moving branch
+    with git.switched_branch(mergecommit, ''):
+        git.check_call(['git', 'branch', 'main', '-f', mergecommit])
+    git.push(pr.branch_head, True)
+    git.push('main')
+
+def prepare(pr_num: int, gh: Github) -> None:
+    pr = gh.get_pr(pr_num)
+    with git.switched_branch(pr.branch_head, ''):
+        git.check_call(['git', 'rebase', 'merge-queue'])
+    with git.switched_branch('merge-queue', ''):
+        git.check_call(['git', 'merge', pr.branch_head, '--cleanup=whitespace', '--no-ff', '-m', f'#{pr_num}: {pr.title}'])
+    git.push('merge-queue')
 
 
-def _main():
+def _main() -> int:
     main(parse_args())
+    return 0
 
 
 if __name__ == '__main__':
