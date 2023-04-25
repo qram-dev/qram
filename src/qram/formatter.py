@@ -16,11 +16,12 @@ class BranchFormatter:
         return PrFormatter(pr, self._config)
 
 class PrFormatter:
+    MERGE_POSTFIX = 'merge-after-rebase'
     rebase_target: str
     merge: str
     source: str
 
     def __init__(self, pr: int, config: Config) -> None:
         self.rebase_target = f'{config.branch_folder}/pr{pr}/rebase-target'
-        self.merge = f'{config.branch_folder}/pr{pr}/merge-after-rebase'
+        self.merge = f'{config.branch_folder}/pr{pr}/{PrFormatter.MERGE_POSTFIX}'
         self.source = f'{config.branch_folder}/pr{pr}/source'

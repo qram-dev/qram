@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import NamedTuple, Optional, Tuple
 from qram import format_author, format_merge_message
 from qram.config import Config
-from qram.formatter import BranchFormatter
+from qram.formatter import BranchFormatter, PrFormatter
 
 import qram.git as git
 from qram.github import Github
@@ -60,7 +60,7 @@ def main(args: Args) -> None:
 
 def generate(root: str, index: int, gh: Github) -> None:
     x = git.genhash()
-    with git.switched_branch(x, root, True):
+    with git.switched_branch(f'do-{x}', root, True):
         git.commit(x)
         git.push(x)
     gh.create_pr(x, f'{index} - add {x}').json()
@@ -70,9 +70,22 @@ def merge(pr_num: int, gh: Github, config: Config) -> None:
     pr = gh.get_pr(pr_num)
     branches_global = BranchFormatter(config)
     branches_pr = branches_global.pr(pr_num)
+
+    # sanity checks
+    if not git.branch_exists(branches_pr.merge):
+        raise RuntimeError(f'Cannot merge PR-{pr_num}: its branch {pr.branch_head} has not been prepared yet')
+    log = git.check_output(['log', '--format=format:%h - %D', f'{branches_pr.merge}^']).splitlines()
+    line_is_merge = [
+        line for line in log
+        if line.endswith(PrFormatter.MERGE_POSTFIX)
+    ]
+    if line_is_merge:
+        raise RuntimeError(f'Cannot merge PR-{pr_num}: other PRs present in queue:\n' + "\n".join(line_is_merge))
+
     # switch in case we are currently on target branch
     with git.switched_branch(branches_pr.merge):
         git.check_call(['branch', branches_global.target, '-f', 'HEAD'])
+
     # first push pr branch, then push target; do it in 2 separate pushes - otherwise github loses
     # its head and displays sillyness in PR commit list
     git.push(pr.branch_head, True)
