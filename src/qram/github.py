@@ -1,7 +1,7 @@
 import logging
 
 from pprint import pformat
-from typing import NamedTuple
+from typing import Dict, NamedTuple
 
 from requests import get, post, put, Response
 
@@ -67,6 +67,10 @@ class Github:
             title=j['title'],
             body=j.get('body') or '',
             branch_head=head,
+            author=dict(
+                username=j['user']['login'],
+                id=j['user']['id']
+            )
         )
 
 class Pr(NamedTuple):
@@ -74,3 +78,4 @@ class Pr(NamedTuple):
     title: str
     body: str
     branch_head: str
+    author: Dict[str, str]

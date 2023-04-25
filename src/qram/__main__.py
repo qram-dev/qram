@@ -6,8 +6,9 @@ from argparse import ArgumentParser
 from os import chdir
 from pathlib import Path
 from typing import NamedTuple, Optional, Tuple
-from qram import format_merge_message
+from qram import format_author, format_merge_message
 from qram.config import Config
+from qram.formatter import BranchFormatter
 
 import qram.git as git
 from qram.github import Github
@@ -19,8 +20,8 @@ class Args(NamedTuple):
     token_file: str
     root: str
     create_pr: Optional[str]
-    prepare: Optional[int]
-    merge: Tuple[str, str]
+    prepare: int
+    merge: int
     generate_merges: int
 
 
@@ -33,7 +34,7 @@ def parse_args() -> Args:
     p.add_argument('--root', default='root')
     p.add_argument('--create-pr')
     p.add_argument('--prepare', type=int, default=0)
-    p.add_argument('--merge', nargs=2)
+    p.add_argument('--merge', type=int, default=0)
     p.add_argument('--generate-merges', type=int, default=0)
     return Args(**p.parse_args().__dict__)
 
@@ -54,8 +55,7 @@ def main(args: Args) -> None:
         prepare(args.prepare, gh, config)
 
     if args.merge:
-        pr_num, mergecommit = args.merge
-        merge(int(pr_num), mergecommit, gh)
+        merge(args.merge, gh, config)
 
 
 def generate(root: str, index: int, gh: Github) -> None:
@@ -66,24 +66,58 @@ def generate(root: str, index: int, gh: Github) -> None:
     gh.create_pr(x, f'{index} - add {x}').json()
 
 
-def merge(pr_num: int, mergecommit: str, gh: Github) -> None:
+def merge(pr_num: int, gh: Github, config: Config) -> None:
     pr = gh.get_pr(pr_num)
-    # switch in case we are currently on moving branch
-    with git.switched_branch(mergecommit, ''):
-        git.check_call(['branch', 'main', '-f', mergecommit])
+    branches_global = BranchFormatter(config)
+    branches_pr = branches_global.pr(pr_num)
+    # switch in case we are currently on target branch
+    with git.switched_branch(branches_pr.merge):
+        git.check_call(['branch', branches_global.target, '-f', 'HEAD'])
+    # first push pr branch, then push target; do it in 2 separate pushes - otherwise github loses
+    # its head and displays sillyness in PR commit list
     git.push(pr.branch_head, True)
-    git.push('main')
+    git.push(branches_global.target)
+    for b in [branches_pr.merge, branches_pr.source, branches_pr.rebase_target]:
+        git.check_call(['branch', '-D', b])
 
 
 def prepare(pr_num: int, gh: Github, config: Config) -> None:
     pr = gh.get_pr(pr_num)
-    with git.switched_branch(pr.branch_head, ''):
-        git.check_call(['rebase', 'merge-queue'])
-    with git.switched_branch('merge-queue', ''):
+    branches_global = BranchFormatter(config)
+    branches_pr = branches_global.pr(pr_num)
+
+    # mark original branch location as source, to use it for rebases later
+    if not git.branch_exists(branches_pr.source):
+        git.check_call(['branch', branches_pr.source, pr.branch_head])
+
+    # create merge queue branch if it does not exist yet
+    if not git.branch_exists(branches_global.queue):
+        git.check_call(['branch', branches_global.queue, branches_global.target])
+
+    # drop whatever state current branch is in right now, rebase it from original
+    git.check_call(['branch', pr.branch_head, branches_pr.source, '-f'])
+
+    with git.switched_branch(pr.branch_head):
+        # mark current queue head as target for rebase
+        git.check_call(['branch', branches_pr.rebase_target, branches_global.queue, '-f'])
+        git.check_call(['rebase', branches_pr.rebase_target])
+
+    with git.switched_branch(branches_global.queue):
         message = format_merge_message(pr, config)
+        author = format_author(pr)
+
+        # `git merge` cannot format author, so use --no-commit + `git commit`
         git.check_call(['merge', pr.branch_head, '--no-ff', '--no-commit'])
-        git.check_call(['commit', '--cleanup=whitespace', '-m', message, '--author', config.merge_template.author])
-    git.push('merge-queue')
+        git.check_call([
+            '-c', f'user.name={config.merge_template.author.name}',
+            '-c', f'user.email={config.merge_template.author.email}',
+            'commit',
+            '--author', author,
+            '--cleanup=whitespace', '-m', message,
+        ])
+        git.check_call(['branch', '-f', branches_pr.merge, 'HEAD'])
+
+    git.push(branches_global.queue)
 
 
 def _main() -> int:

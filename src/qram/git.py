@@ -2,10 +2,15 @@ import logging
 
 from contextlib import contextmanager
 from random import choice
-from subprocess import check_call as _check_call, check_output as _check_output
+from subprocess import (
+    call as _call,
+    check_call as _check_call,
+    check_output as _check_output
+)
+from typing import Any, Generator, List
 
 @contextmanager
-def switched_branch(branch: str, source: str, anew: bool=False) -> None:
+def switched_branch(branch: str, source: str='HEAD', anew: bool=False) -> Generator[None, None, None]:
     if anew:
         try:
             check_call(['branch', '-D', branch])
@@ -20,7 +25,7 @@ def switched_branch(branch: str, source: str, anew: bool=False) -> None:
         check_call(['checkout', current])
 
 def genhash() -> str:
-    def ch():
+    def ch() -> str:
         return chr(choice(list(range(ord('g'), ord('z')+1))))
     return ''.join([ch() for _ in range(0,11)])
 
@@ -33,10 +38,22 @@ def commit(x: str) -> None:
 def push(x: str, force: bool=True) -> None:
     check_call(['push', '-u', 'origin', x, *(['--force'] if force else [])])
 
-def check_call(cmd, *a, **kw) -> None:
-    logging.info(f'CMD: {" ".join(cmd)}' + (f'| {kw}' if kw else ''))
-    _check_call(['git'] + cmd, *a, **kw)
+def branch_exists(x: str) -> bool:
+    return call(['show-ref', '--verify', '--quiet', f'refs/heads/{x}'])
 
-def check_output(cmd, *a, **kw) -> str:
+def call(cmd: List[str], *a: Any, **kw: Any) -> bool:
+    cmd = ['git'] + cmd
     logging.info(f'CMD: {" ".join(cmd)}' + (f'| {kw}' if kw else ''))
-    return _check_output(['git'] + cmd, *a, **kw).decode()
+    c = _call(cmd, *a, **kw)
+    logging.info(f'--> {c}')
+    return c == 0
+
+def check_call(cmd: List[str], *a: Any, **kw: Any) -> None:
+    cmd = ['git'] + cmd
+    logging.info(f'CMD: {" ".join(cmd)}' + (f'| {kw}' if kw else ''))
+    _check_call(cmd, *a, **kw)
+
+def check_output(cmd: List[str], *a: Any, **kw: Any) -> str:
+    cmd = ['git'] + cmd
+    logging.info(f'CMD: {" ".join(cmd)}' + (f'| {kw}' if kw else ''))
+    return _check_output(cmd, *a, **kw).decode()
