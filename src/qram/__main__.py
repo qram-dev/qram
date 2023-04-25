@@ -42,11 +42,7 @@ def main(args: Args) -> None:
     gh = Github(Path(args.token_file).read_text().strip(), args.owner, args.repo)
 
     for i in range(1, 1+args.generate_merges):
-        x = git.genhash()
-        with git.switched_branch(x, args.root, True):
-            git.commit(x)
-            git.push(x)
-        gh.create_pr(x, f'{i} - add {x}').json()
+        generate(args.root, i, gh)
 
     if args.create_pr:
         gh.create_pr(args.create_pr, f'manually merge {args.create_pr}').json()
@@ -58,6 +54,15 @@ def main(args: Args) -> None:
         pr_num, mergecommit = args.merge
         merge(int(pr_num), mergecommit, gh)
 
+
+def generate(root: str, index: int, gh: Github) -> None:
+    x = git.genhash()
+    with git.switched_branch(x, root, True):
+        git.commit(x)
+        git.push(x)
+    gh.create_pr(x, f'{index} - add {x}').json()
+
+
 def merge(pr_num: int, mergecommit: str, gh: Github) -> None:
     pr = gh.get_pr(pr_num)
     # switch in case we are currently on moving branch
@@ -66,7 +71,7 @@ def merge(pr_num: int, mergecommit: str, gh: Github) -> None:
     git.push(pr.branch_head, True)
     git.push('main')
 
-def prepare(pr_num: int, gh: Github) -> None:
+
     pr = gh.get_pr(pr_num)
     with git.switched_branch(pr.branch_head, ''):
         git.check_call(['git', 'rebase', 'merge-queue'])
