@@ -26,10 +26,23 @@ class Config:
         config_file = Path('qram.yml').absolute()
         with open(config_file) as f:
             yy = yaml.safe_load(f)
+            if type(yy) != dict:
+                raise RuntimeError('config file is not a dictionary')
         cfg = Config()
-        cfg.merge_template = _CfgMergeTemplate(**(yy['merge-template']))
+        mt = yy.get('merge-template', _default_merge_template)
+        cfg.merge_template = _CfgMergeTemplate(
+            author=mt.get('author', _default_merge_template['author']),
+            jinja=mt.get('jinja', _default_merge_template['jinja']),
+        )
         return cfg
 
 class _CfgMergeTemplate(NamedTuple):
     author: str
     jinja: str
+
+_default_merge_template = dict(
+    author='qram <qram>',
+    jinja='''#{{pr.number}}: {{pr.title}}
+
+{{pr.body}}'''
+)
