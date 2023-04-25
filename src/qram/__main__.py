@@ -70,7 +70,7 @@ def merge(pr_num: int, mergecommit: str, gh: Github) -> None:
     pr = gh.get_pr(pr_num)
     # switch in case we are currently on moving branch
     with git.switched_branch(mergecommit, ''):
-        git.check_call(['git', 'branch', 'main', '-f', mergecommit])
+        git.check_call(['branch', 'main', '-f', mergecommit])
     git.push(pr.branch_head, True)
     git.push('main')
 
@@ -78,11 +78,11 @@ def merge(pr_num: int, mergecommit: str, gh: Github) -> None:
 def prepare(pr_num: int, gh: Github, config: Config) -> None:
     pr = gh.get_pr(pr_num)
     with git.switched_branch(pr.branch_head, ''):
-        git.check_call(['git', 'rebase', 'merge-queue'])
+        git.check_call(['rebase', 'merge-queue'])
     with git.switched_branch('merge-queue', ''):
         message = format_merge_message(pr, config)
-        git.check_call(['git', 'merge', pr.branch_head, '--no-ff', '--no-commit'])
-        git.check_call(['git', 'commit', '--cleanup=whitespace', '-m', message, '--author', config.merge_template.author])
+        git.check_call(['merge', pr.branch_head, '--no-ff', '--no-commit'])
+        git.check_call(['commit', '--cleanup=whitespace', '-m', message, '--author', config.merge_template.author])
     git.push('merge-queue')
 
 

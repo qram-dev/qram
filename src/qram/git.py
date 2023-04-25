@@ -8,16 +8,16 @@ from subprocess import check_call as _check_call, check_output as _check_output
 def switched_branch(branch: str, source: str, anew: bool=False) -> None:
     if anew:
         try:
-            check_call(['git', 'branch', '-D', branch])
+            check_call(['branch', '-D', branch])
         except:
             pass
 
-    current = check_output(['git', 'rev-parse', '--abbrev-ref', 'HEAD']).strip()
-    check_call(['git', 'checkout', *(['-B', branch, source] if anew else [branch])])
+    current = check_output(['rev-parse', '--abbrev-ref', 'HEAD']).strip()
+    check_call(['checkout', *(['-B', branch, source] if anew else [branch])])
     try:
         yield
     finally:
-        check_call(['git', 'checkout', current])
+        check_call(['checkout', current])
 
 def genhash() -> str:
     def ch():
@@ -27,16 +27,16 @@ def genhash() -> str:
 def commit(x: str) -> None:
     with open(x, 'w') as f:
         f.write(f'{x}\n')
-    check_call(['git', 'add', x])
-    check_call(['git', 'commit', '-m', x])
+    check_call(['add', x])
+    check_call(['commit', '-m', x])
 
 def push(x: str, force: bool=True) -> None:
-    check_call(['git', 'push', '-u', 'origin', x, *(['--force'] if force else [])])
+    check_call(['push', '-u', 'origin', x, *(['--force'] if force else [])])
 
 def check_call(cmd, *a, **kw) -> None:
     logging.info(f'CMD: {" ".join(cmd)}' + (f'| {kw}' if kw else ''))
-    _check_call(cmd, *a, **kw)
+    _check_call(['git'] + cmd, *a, **kw)
 
 def check_output(cmd, *a, **kw) -> str:
     logging.info(f'CMD: {" ".join(cmd)}' + (f'| {kw}' if kw else ''))
-    return _check_output(cmd, *a, **kw).decode()
+    return _check_output(['git'] + cmd, *a, **kw).decode()
