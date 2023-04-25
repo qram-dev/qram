@@ -6,6 +6,8 @@ from argparse import ArgumentParser
 from os import chdir
 from pathlib import Path
 from typing import NamedTuple, Optional, Tuple
+from qram import format_merge_message
+from qram.config import Config
 
 import qram.git as git
 from qram.github import Github
@@ -39,6 +41,7 @@ def parse_args() -> Args:
 def main(args: Args) -> None:
     logging.basicConfig(level=logging.DEBUG)
     chdir(args.target)
+    config = Config.read_from_repo()
     gh = Github(Path(args.token_file).read_text().strip(), args.owner, args.repo)
 
     for i in range(1, 1+args.generate_merges):
@@ -48,7 +51,7 @@ def main(args: Args) -> None:
         gh.create_pr(args.create_pr, f'manually merge {args.create_pr}').json()
 
     if args.prepare:
-        prepare(args.prepare, gh)
+        prepare(args.prepare, gh, config)
 
     if args.merge:
         pr_num, mergecommit = args.merge
@@ -72,11 +75,14 @@ def merge(pr_num: int, mergecommit: str, gh: Github) -> None:
     git.push('main')
 
 
+def prepare(pr_num: int, gh: Github, config: Config) -> None:
     pr = gh.get_pr(pr_num)
     with git.switched_branch(pr.branch_head, ''):
         git.check_call(['git', 'rebase', 'merge-queue'])
     with git.switched_branch('merge-queue', ''):
-        git.check_call(['git', 'merge', pr.branch_head, '--cleanup=whitespace', '--no-ff', '-m', f'#{pr_num}: {pr.title}'])
+        message = format_merge_message(pr, config)
+        git.check_call(['git', 'merge', pr.branch_head, '--no-ff', '--no-commit'])
+        git.check_call(['git', 'commit', '--cleanup=whitespace', '-m', message, '--author', config.merge_template.author])
     git.push('merge-queue')
 
 

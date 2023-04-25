@@ -1,4 +1,6 @@
 import logging
+
+from pprint import pformat
 from typing import NamedTuple
 
 from requests import get, post, put, Response
@@ -59,15 +61,16 @@ class Github:
         head = j.get('head', dict()).get('ref')
         if not head:
             raise RuntimeError('no head')
+        logging.debug(f'pr:\n'+pformat(j))
         return Pr(
             number=pr,
             title=j['title'],
-            description=j['description'],
+            body=j.get('body') or '',
             branch_head=head,
         )
 
 class Pr(NamedTuple):
     number: int
     title: str
-    description: str
+    body: str
     branch_head: str

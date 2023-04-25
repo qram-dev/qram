@@ -2,6 +2,8 @@
     name = 'qram'
     version = '0.0'
     dependencies = [
+        'jinja2',
+        'pyyaml',
         'requests',
     ]
 
