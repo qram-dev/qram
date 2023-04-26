@@ -17,12 +17,15 @@ def switched_branch(branch: str, source: str='HEAD', anew: bool=False) -> Genera
         except:
             pass
 
-    current = check_output(['rev-parse', '--abbrev-ref', 'HEAD']).strip()
+    current = current_branch()
     check_call(['checkout', *(['-B', branch, source] if anew else [branch])])
     try:
         yield
     finally:
         check_call(['checkout', current])
+
+def current_branch() -> str:
+    return check_output(['rev-parse', '--abbrev-ref', 'HEAD']).strip()
 
 def genhash() -> str:
     def ch() -> str:
@@ -41,13 +44,13 @@ def push(x: str, force: bool=True) -> None:
 def branch_exists(x: str) -> bool:
     return call(['show-ref', '--verify', '--quiet', f'refs/heads/{x}'])
 
+
 def call(cmd: List[str], *a: Any, **kw: Any) -> bool:
     cmd = ['git'] + cmd
     logging.info(f'CMD: {" ".join(cmd)}' + (f'| {kw}' if kw else ''))
     c = _call(cmd, *a, **kw)
     logging.info(f'--> {c}')
     return c == 0
-
 
 def check_call(cmd: List[str], *a: Any, **kw: Any) -> None:
     cmd = ['git'] + cmd
