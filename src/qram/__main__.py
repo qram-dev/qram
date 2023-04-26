@@ -20,6 +20,7 @@ class Args(NamedTuple):
     owner: str
     repo: str
     token_file: str
+    token: Optional[str]
     root: str
 
 
@@ -30,6 +31,7 @@ def parse_args() -> Args:
     p.add_argument('pr', type=int)
     p.add_argument('--owner', default='Artalus')
     p.add_argument('--repo', default='merge-test')
+    p.add_argument('--token')
     p.add_argument('--token-file', default='token')
     p.add_argument('--root', default='root')
     return Args(**p.parse_args().__dict__)
@@ -39,7 +41,8 @@ def main(args: Args) -> None:
     logging.basicConfig(level=logging.DEBUG)
     chdir(args.target)
     config = Config.read_from_repo()
-    gh = Github(Path(args.token_file).read_text().strip(), args.owner, args.repo)
+    token = args.token if args.token else Path(args.token_file).read_text().strip()
+    gh = Github(token, args.owner, args.repo)
 
     if args.command == 'generate':
         for i in range(1, 1+args.pr):
