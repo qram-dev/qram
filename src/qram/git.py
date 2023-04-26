@@ -27,6 +27,9 @@ def switched_branch(branch: str, source: str='HEAD', anew: bool=False) -> Genera
 def current_branch() -> str:
     return check_output(['rev-parse', '--abbrev-ref', 'HEAD']).strip()
 
+def hash_of(ref: str) -> str:
+    return check_output(['rev-parse', ref]).strip()
+
 def genhash() -> str:
     def ch() -> str:
         return chr(choice(list(range(ord('g'), ord('z')+1))))

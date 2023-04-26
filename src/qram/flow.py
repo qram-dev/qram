@@ -34,7 +34,9 @@ def merge(pr_num: int, gh: Github, config: Config) -> None:
     # its head and displays sillyness in PR commit list
     git.push(pr.branch_head, True)
     git.push(branches_global.target)
-    for b in [branches_pr.merge, branches_pr.source, branches_pr.rebase_target]:
+    for b in [
+        branches_pr.merge, branches_pr.source, branches_pr.rebase_target, pr.branch_head
+    ]:
         git.check_call(['branch', '-D', b])
 
 
