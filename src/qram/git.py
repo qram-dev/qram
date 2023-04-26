@@ -48,6 +48,7 @@ def call(cmd: List[str], *a: Any, **kw: Any) -> bool:
     logging.info(f'--> {c}')
     return c == 0
 
+
 def check_call(cmd: List[str], *a: Any, **kw: Any) -> None:
     cmd = ['git'] + cmd
     logging.info(f'CMD: {" ".join(cmd)}' + (f'| {kw}' if kw else ''))
@@ -57,3 +58,22 @@ def check_output(cmd: List[str], *a: Any, **kw: Any) -> str:
     cmd = ['git'] + cmd
     logging.info(f'CMD: {" ".join(cmd)}' + (f'| {kw}' if kw else ''))
     return _check_output(cmd, *a, **kw).decode()
+
+
+def extract_branches_from_line(line: str, remote_list=['origin']) -> List[str]:
+    remotes = tuple(f'{x.rstrip("/")}/' for x in remote_list)
+    split = line.strip().split(', ')
+    result = []
+    for x in split:
+        if not x:
+            continue
+        if x == 'HEAD':
+            continue
+        if x.startswith(remotes):
+            continue
+        if x.startswith('tag: '):
+            continue
+        if '->' in x:
+            _, x = x.split('->')
+        result.append(x.strip())
+    return result

@@ -13,4 +13,6 @@
 [project.optional-dependencies]
     dev = [
         'mypy',
+        'pytest',
+        'pytest-cov',
     ]
