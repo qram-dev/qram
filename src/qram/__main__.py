@@ -6,7 +6,7 @@ from argparse import ArgumentParser
 from os import chdir
 from pathlib import Path
 from typing import NamedTuple, Optional, Tuple
-from qram import format_author, format_merge_message
+from qram import find_merges_after, find_merges_before, format_author, format_merge_message
 from qram.config import Config
 from qram.formatter import BranchFormatter, PrFormatter
 
@@ -15,27 +15,23 @@ from qram.github import Github
 
 class Args(NamedTuple):
     target: str
+    command: str
+    pr: int
     owner: str
     repo: str
     token_file: str
     root: str
-    create_pr: Optional[str]
-    prepare: int
-    merge: int
-    generate_merges: int
 
 
 def parse_args() -> Args:
     p = ArgumentParser()
     p.add_argument('target')
+    p.add_argument('command', choices=('generate', 'prepare', 'merge', 'bad'))
+    p.add_argument('pr', type=int)
     p.add_argument('--owner', default='Artalus')
     p.add_argument('--repo', default='merge-test')
     p.add_argument('--token-file', default='token')
     p.add_argument('--root', default='root')
-    p.add_argument('--create-pr')
-    p.add_argument('--prepare', type=int, default=0)
-    p.add_argument('--merge', type=int, default=0)
-    p.add_argument('--generate-merges', type=int, default=0)
     return Args(**p.parse_args().__dict__)
 
 
@@ -45,25 +41,24 @@ def main(args: Args) -> None:
     config = Config.read_from_repo()
     gh = Github(Path(args.token_file).read_text().strip(), args.owner, args.repo)
 
-    for i in range(1, 1+args.generate_merges):
-        generate(args.root, i, gh)
-
-    if args.create_pr:
-        gh.create_pr(args.create_pr, f'manually merge {args.create_pr}').json()
-
-    if args.prepare:
-        prepare(args.prepare, gh, config)
-
-    if args.merge:
-        merge(args.merge, gh, config)
+    if args.command == 'generate':
+        for i in range(1, 1+args.pr):
+            generate(args.root, i, gh)
+    elif args.command == 'prepare':
+        prepare(args.pr, gh, config)
+    elif args.command == 'merge':
+        merge(args.pr, gh, config)
+    elif args.command == 'bad':
+        mark_merge_bad(args.pr, gh, config)
 
 
 def generate(root: str, index: int, gh: Github) -> None:
     x = git.genhash()
-    with git.switched_branch(f'do-{x}', root, True):
+    branch = f'do-{x}'
+    with git.switched_branch(branch, root, True):
         git.commit(x)
-        git.push(x)
-    gh.create_pr(x, f'{index} - add {x}').json()
+        git.push(branch)
+    gh.create_pr(branch, f'{index} - add {x}').json()
 
 
 def merge(pr_num: int, gh: Github, config: Config) -> None:
@@ -74,13 +69,12 @@ def merge(pr_num: int, gh: Github, config: Config) -> None:
     # sanity checks
     if not git.branch_exists(branches_pr.merge):
         raise RuntimeError(f'Cannot merge PR-{pr_num}: its branch {pr.branch_head} has not been prepared yet')
-    log = git.check_output(['log', '--format=format:%h - %D', f'{branches_pr.merge}^']).splitlines()
-    line_is_merge = [
-        line for line in log
-        if line.endswith(PrFormatter.MERGE_POSTFIX)
-    ]
-    if line_is_merge:
-        raise RuntimeError(f'Cannot merge PR-{pr_num}: other PRs present in queue:\n' + "\n".join(line_is_merge))
+    if git.branch_exists(branches_pr.bad):
+        raise RuntimeError(f'Cannot merge PR-{pr_num}: it is marked as bad')
+    merges = find_merges_before(branches_pr.merge, branches_global.target)
+    # FIXME: need also check for /bad's !!
+    if merges:
+        raise RuntimeError(f'Cannot merge PR-{pr_num}: other PRs present in queue:\n{merges}')
 
     # switch in case we are currently on target branch
     with git.switched_branch(branches_pr.merge):
@@ -92,6 +86,7 @@ def merge(pr_num: int, gh: Github, config: Config) -> None:
     git.push(branches_global.target)
     for b in [branches_pr.merge, branches_pr.source, branches_pr.rebase_target]:
         git.check_call(['branch', '-D', b])
+
 
 
 def prepare(pr_num: int, gh: Github, config: Config) -> None:
@@ -131,6 +126,45 @@ def prepare(pr_num: int, gh: Github, config: Config) -> None:
         git.check_call(['branch', '-f', branches_pr.merge, 'HEAD'])
 
     git.push(branches_global.queue)
+    # once we enqueued branch, it is no longer bad until we receive new status from ci
+    if git.branch_exists(branches_pr.bad):
+        git.check_call(['branch', '-D', branches_pr.bad])
+
+
+def mark_merge_bad(pr_num: int, gh: Github, config: Config) -> None:
+    """
+    Given merge X for which we got FAILURE from CI:
+    - mark X as bad merge
+    - find earliest merge below X that is not bad
+    - drop existing queue above X
+    - rebase everything above X to good merge, or to main if none found
+    """
+    branches_global = BranchFormatter(config)
+    branches_bad_pr = branches_global.pr(pr_num)
+    git.check_call(['branch', '-f', branches_bad_pr.bad, branches_bad_pr.merge])
+
+    # if there are no merges before us, at least rebase onto main branch
+    not_bad_merges = (
+        candidate for candidate, branches in
+        find_merges_before(branches_bad_pr.bad, config.target_branch, include_target_branch=True)
+        if not any(b.endswith('/' + PrFormatter.BAD_POSTFIX) for b in branches)
+    )
+    destination = next(not_bad_merges)
+
+    prs_above = [
+        branches_bad_pr.extract_pr_from_branch_list(branches, config)
+        for _, branches in find_merges_after(branches_bad_pr.bad, branches_global.queue)
+    ]
+    git.check_call(['branch', '-f', branches_global.queue, destination])
+    git.check_call(['branch', '-D', branches_bad_pr.merge, branches_bad_pr.rebase_target])
+
+    for pr_num in prs_above:
+        pr_branch = gh.get_pr(pr_num).branch_head
+        branches_above = branches_global.pr(pr_num)
+        for b in pr_branch, branches_above.merge, branches_above.rebase_target:
+            git.check_output(['branch', '-D', b])
+        prepare(pr_num, gh, config)
+
 
 
 def _main() -> int:
