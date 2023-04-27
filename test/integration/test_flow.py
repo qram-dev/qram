@@ -1,6 +1,10 @@
 from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import Mock
 
+import pytest
 from pytest_mock import MockerFixture
+from pytest_bdd import scenarios, given, when, then, parsers
 
 from qram import flow, git
 from qram.config import Config
@@ -10,58 +14,112 @@ from qram.github import Pr
 from test.integration.mocks import GithubMock
 from .. import chdir
 
-class TestSuccessfulFlow:
-    def test_one_pr(self, repo_tar: Path, mocker: MockerFixture) -> None:
-        mocker.patch('qram.git.push')
-        with chdir(repo_tar):
-            PR_NUMBER = 1
-            cfg = Config()
-            branches_global = BranchFormatter(cfg)
-            branches_pr = branches_global.pr(PR_NUMBER)
-            gh = GithubMock()
-            pr: Pr = gh.get_pr(PR_NUMBER)
 
-            # AT FIRST, repo is in pristine state, no markers exist
-            all_branches_of_pr = [
-                branches_pr.rebase_target, branches_pr.bad, branches_pr.source, branches_pr.merge,
-            ]
-            for branch in all_branches_of_pr:
-                assert not git.branch_exists(branch)
-            branch_origin = git.hash_of(pr.branch_head)
+scenarios('scenarios/successful-flow.gherkin')
 
-            # THEN, we prepare pr to be merged
-            flow.prepare(1, gh, cfg)
 
-            # AFTER THAT, push was called once - for queue branch
-            assert git.push.call_count == 1
+class Context(SimpleNamespace):
+    config: Config
+    branches: BranchFormatter
+    gh: Mock
+    pr: Pr
+    pr_branch_original_hash: str
+    branch_rebased: str
+    source: str
 
-            # AND some new markers appear
-            assert git.branch_exists(branches_pr.rebase_target)
-            assert not git.branch_exists(branches_pr.bad)
-            assert git.branch_exists(branches_pr.source)
-            assert git.branch_exists(branches_pr.merge)
 
-            branch_rebased = git.hash_of(pr.branch_head)
-            source = git.hash_of(branches_pr.source)
+@pytest.fixture()
+def context(repo_tar: Path, mocker: MockerFixture) -> Context:
+    mocker.patch('qram.git.push')
+    cd = chdir(repo_tar)
+    cd.__enter__()
+    cfg = Config()
+    return Context(
+        config = cfg,
+        branches = BranchFormatter(cfg),
+        gh = GithubMock(),
+        cd = cd,
+    )
 
-            # AND source and rebase match original branch
-            assert source == branch_origin
-            assert branch_rebased == branch_origin, \
-                "branch does not move for PR that is already on top"
-            # AND merge-after-rebase matches new queue head
-            assert git.hash_of(branches_pr.merge) == git.hash_of(branches_global.queue)
-            # AND main DOES NOT match queue
-            assert git.hash_of(branches_global.target) != git.hash_of(branches_global.queue)
+@given(parsers.parse('PR {num:d} exists'))
+def bdd1ff841b74b(context: Context, num: int) -> None:
+    context.pr = context.gh.get_pr(num)
+    context.pr_branch_original_hash = git.hash_of(context.pr.branch_head)
 
-            # THEN, we merge pr
-            flow.merge(1, gh, cfg)
 
-            # AFTER THAT, push was called twice more - for pr branch and main
-            assert git.push.call_count == 3
+@when('Flow starts')
+def bdd966edddf2f(context: Context) -> None:
+    pass
 
-            # AND markers disappear together with original branch
-            for branch in [*all_branches_of_pr, pr.branch_head]:
-                assert not git.branch_exists(branch)
 
-            # AND main now matches queue
-            assert git.hash_of(branches_global.target) == git.hash_of(branches_global.queue)
+@then('No markers exist except PR branch')
+def bdd9206dec454(context: Context) -> None:
+    branches_pr = context.branches.pr(context.pr.number)
+    context.all_branches_of_pr = [
+        branches_pr.rebase_target, branches_pr.bad, branches_pr.source, branches_pr.merge,
+    ]
+    for branch in context.all_branches_of_pr:
+        assert not git.branch_exists(branch)
+
+
+@when(parsers.parse('PR {num:d} is enqueued'))
+def bdde2edbfedc7(context: Context, num: int) -> None:
+    flow.prepare(1, context.gh, context.config)
+    context.branch_rebased = git.hash_of(context.pr.branch_head)
+    context.source = git.hash_of(context.branches.pr(context.pr.number).source)
+
+
+@then(parsers.parse('Push was called {cnt:d} time'))
+@then(parsers.parse('Push was called {cnt:d} times'))
+def bdd466fdfb405(cnt: int) -> None:
+    assert git.push.call_count == cnt
+    git.push.call_count = 0
+
+
+@then('Some new markers appear')
+def bdd57fb5d36b7(context: Context) -> None:
+    branches_pr = context.branches.pr(context.pr.number)
+    assert git.branch_exists(branches_pr.rebase_target)
+    assert not git.branch_exists(branches_pr.bad)
+    assert git.branch_exists(branches_pr.source)
+    assert git.branch_exists(branches_pr.merge)
+
+
+@then('Source and rebase match original branch')
+def bdd2fe4ed68e1(context: Context) -> None:
+    source = git.hash_of(context.branches.pr(context.pr.number).source)
+    assert source == context.pr_branch_original_hash
+    branch_rebased = git.hash_of(context.pr.branch_head)
+    assert branch_rebased == context.pr_branch_original_hash
+
+
+@then('Merge-after-rebase matches new queue head')
+def bdd5efc04868c(context: Context) -> None:
+    queue = context.branches.queue
+    merge = context.branches.pr(context.pr.number).merge
+    assert git.hash_of(merge) == git.hash_of(queue)
+
+
+@then('Main does not match queue')
+def bddefbb73f51d(context: Context) -> None:
+    queue = context.branches.queue
+    target = context.branches.target
+    assert git.hash_of(target) != git.hash_of(queue)
+
+
+@when(parsers.parse('PR {num:d} is merged'))
+def bdd0cdc37c32f(context: Context, num: int) -> None:
+    flow.merge(num, context.gh, context.config)
+
+
+@then('Markers disappear together with original branch')
+def bdd137d073088(context: Context) -> None:
+    for branch in [*context.all_branches_of_pr, context.pr.branch_head]:
+        assert not git.branch_exists(branch)
+
+
+@then('Main now matches queue')
+def bdda23d20c9bb(context: Context) -> None:
+    queue = context.branches.queue
+    target = context.branches.target
+    assert git.hash_of(target) == git.hash_of(queue)

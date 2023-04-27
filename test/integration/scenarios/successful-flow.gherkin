@@ -1,0 +1,24 @@
+Feature: Successful flow
+    We enqueue my PRs one by one and everything goes well.
+
+    Scenario: Merging one PR
+        Given PR 1 exists
+
+        When Flow starts
+        Then No markers exist except PR branch
+
+        When PR 1 is enqueued
+        Then Push was called 1 time
+        #    , for queue
+        And Some new markers appear
+        And Source and rebase match original branch
+        #   , because branch does not move for PR that is already on top
+        And Source and rebase match original branch
+        And Merge-after-rebase matches new queue head
+        And Main does not match queue
+
+        When PR 1 is merged
+        Then Push was called 2 times
+        #    , for pr branch and for main
+        And Markers disappear together with original branch
+        And Main now matches queue
