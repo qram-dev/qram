@@ -55,7 +55,7 @@ def bdd966edddf2f(context: Context) -> None:
 def bdd9206dec454(context: Context) -> None:
     branches_pr = context.branches.pr(context.pr.number)
     context.all_branches_of_pr = [
-        branches_pr.rebase_target, branches_pr.bad, branches_pr.source, branches_pr.merge,
+        branches_pr.rebase, branches_pr.bad, branches_pr.source, branches_pr.merge,
     ]
     for branch in context.all_branches_of_pr:
         assert not git.branch_exists(branch)
@@ -78,7 +78,7 @@ def bdd466fdfb405(cnt: int) -> None:
 @then('Some new markers appear')
 def bdd57fb5d36b7(context: Context) -> None:
     branches_pr = context.branches.pr(context.pr.number)
-    assert git.branch_exists(branches_pr.rebase_target)
+    assert git.branch_exists(branches_pr.rebase)
     assert not git.branch_exists(branches_pr.bad)
     assert git.branch_exists(branches_pr.source)
     assert git.branch_exists(branches_pr.merge)

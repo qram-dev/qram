@@ -20,11 +20,11 @@ class BranchFormatter:
         return PrFormatter(pr, self._config)
 
 class PrFormatter:
-    MERGE_POSTFIX = 'merge-after-rebase'
-    BAD_POSTFIX = 'bad'
-    REBASE_TARGET_POSTFIX = 'rebase-target'
-    SOURCE_POSTFIX = 'source'
-    rebase_target: str
+    POSTFIX_MERGE = 'merge-after-rebase'
+    POSTFIX_BAD = 'bad'
+    POSTFIX_REBASe = 'rebase-target'
+    POSTFIX_SOURCE = 'source'
+    rebase: str
     merge: str
     source: str
     bad: str
@@ -32,17 +32,17 @@ class PrFormatter:
 
     def __init__(self, pr: int, config: Config) -> None:
         self._config = config
-        self.rebase_target = f'{config.branch_folder}/pr{pr}/{PrFormatter.REBASE_TARGET_POSTFIX}'
-        self.merge = f'{config.branch_folder}/pr{pr}/{PrFormatter.MERGE_POSTFIX}'
-        self.source = f'{config.branch_folder}/pr{pr}/{PrFormatter.SOURCE_POSTFIX}'
-        self.bad = f'{config.branch_folder}/pr{pr}/{PrFormatter.BAD_POSTFIX}'
+        self.rebase = f'{config.branch_folder}/pr{pr}/{PrFormatter.POSTFIX_REBASe}'
+        self.merge = f'{config.branch_folder}/pr{pr}/{PrFormatter.POSTFIX_MERGE}'
+        self.source = f'{config.branch_folder}/pr{pr}/{PrFormatter.POSTFIX_SOURCE}'
+        self.bad = f'{config.branch_folder}/pr{pr}/{PrFormatter.POSTFIX_BAD}'
 
     @staticmethod
     def extract_pr_from_branch(branch: str, config: Config) -> int:
         prefix = config.branch_folder
         postfix = '|'.join([
-            PrFormatter.MERGE_POSTFIX, PrFormatter.BAD_POSTFIX,
-            PrFormatter.REBASE_TARGET_POSTFIX, PrFormatter.SOURCE_POSTFIX
+            PrFormatter.POSTFIX_MERGE, PrFormatter.POSTFIX_BAD,
+            PrFormatter.POSTFIX_REBASe, PrFormatter.POSTFIX_SOURCE
         ])
         REGEX = re.compile(f'{prefix}/pr(\\d+)/({postfix})')
         m = REGEX.search(branch)
@@ -52,8 +52,8 @@ class PrFormatter:
     @staticmethod
     def extract_pr_from_branch_list(branches: List[str], config: Config) -> int:
         postfixes = [
-            PrFormatter.MERGE_POSTFIX, PrFormatter.BAD_POSTFIX,
-            PrFormatter.REBASE_TARGET_POSTFIX, PrFormatter.SOURCE_POSTFIX
+            PrFormatter.POSTFIX_MERGE, PrFormatter.POSTFIX_BAD,
+            PrFormatter.POSTFIX_REBASe, PrFormatter.POSTFIX_SOURCE
         ]
         for b in branches:
             for p in postfixes:

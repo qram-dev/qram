@@ -60,6 +60,6 @@ def _extract_merges(log: Iterable[Tuple[str, List[str]]], with_branch: Optional[
         check also whether branch is the `main` branch to which merges are directed.
     """
     for hash, branches in log:
-        has_merges = any(b for b in branches if b.endswith(PrFormatter.MERGE_POSTFIX))
+        has_merges = any(b for b in branches if b.endswith(PrFormatter.POSTFIX_MERGE))
         if has_merges or (with_branch and with_branch in branches):
             yield hash, branches

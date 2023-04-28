@@ -35,7 +35,7 @@ def merge(pr_num: int, gh: Github, config: Config) -> None:
     git.push(pr.branch_head, True)
     git.push(branches_global.target)
     for b in [
-        branches_pr.merge, branches_pr.source, branches_pr.rebase_target, pr.branch_head
+        branches_pr.merge, branches_pr.source, branches_pr.rebase, pr.branch_head
     ]:
         git.check_call(['branch', '-D', b])
 
@@ -59,8 +59,8 @@ def prepare(pr_num: int, gh: Github, config: Config) -> None:
 
     with git.switched_branch(pr.branch_head):
         # mark current queue head as target for rebase
-        git.check_call(['branch', branches_pr.rebase_target, branches_global.queue, '-f'])
-        git.check_call(['rebase', branches_pr.rebase_target])
+        git.check_call(['branch', branches_pr.rebase, branches_global.queue, '-f'])
+        git.check_call(['rebase', branches_pr.rebase])
 
     with git.switched_branch(branches_global.queue):
         message = format_merge_message(pr, config)
@@ -99,7 +99,7 @@ def mark_merge_bad(pr_num: int, gh: Github, config: Config) -> None:
     not_bad_merges = (
         candidate for candidate, branches in
         find_merges_before(branches_bad_pr.bad, config.target_branch, include_target_branch=True)
-        if not any(b.endswith('/' + PrFormatter.BAD_POSTFIX) for b in branches)
+        if not any(b.endswith('/' + PrFormatter.POSTFIX_BAD) for b in branches)
     )
     destination = next(not_bad_merges)
 
@@ -108,11 +108,11 @@ def mark_merge_bad(pr_num: int, gh: Github, config: Config) -> None:
         for _, branches in find_merges_after(branches_bad_pr.bad, branches_global.queue)
     ]
     git.check_call(['branch', '-f', branches_global.queue, destination])
-    git.check_call(['branch', '-D', branches_bad_pr.merge, branches_bad_pr.rebase_target])
+    git.check_call(['branch', '-D', branches_bad_pr.merge, branches_bad_pr.rebase])
 
     for pr_num in prs_above:
         pr_branch = gh.get_pr(pr_num).branch_head
         branches_above = branches_global.pr(pr_num)
-        for b in pr_branch, branches_above.merge, branches_above.rebase_target:
+        for b in pr_branch, branches_above.merge, branches_above.rebase:
             git.check_output(['branch', '-D', b])
         prepare(pr_num, gh, config)
