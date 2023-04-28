@@ -1,6 +1,5 @@
 from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import Mock
 
 import pytest
 from pytest_mock import MockerFixture
@@ -21,7 +20,7 @@ scenarios('scenarios/successful-flow.gherkin')
 class Context(SimpleNamespace):
     config: Config
     branches: BranchFormatter
-    gh: Mock
+    gh: GithubMock
     pr: Pr
     pr_branch_original_hash: str
     branch_rebased: str

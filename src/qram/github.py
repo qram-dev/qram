@@ -1,7 +1,7 @@
 import logging
 
 from pprint import pformat
-from typing import Dict, NamedTuple
+from typing import Any, Dict, NamedTuple, Optional
 
 from requests import get, post, put, Response
 
@@ -11,7 +11,7 @@ class Github:
         self.owner = owner
         self.repo = repo
 
-    def get(self, destination: str, **kwargs) -> Response:
+    def get(self, destination: str, **kwargs: Any) -> Response:
         headers = dict(Authorization=f'Bearer {self.token}')
         h = kwargs.get('headers', dict())
         if h:
@@ -24,7 +24,7 @@ class Github:
         logging.info(f'GET -> {r.status_code}')
         return r
 
-    def post(self, destination: str, **kwargs) -> Response:
+    def post(self, destination: str, **kwargs: Any) -> Response:
         headers = dict(Authorization=f'Bearer {self.token}')
         h = kwargs.get('headers', dict())
         if h:
@@ -35,7 +35,7 @@ class Github:
             **kwargs,
         )
 
-    def put(self, destination: str, **kwargs) -> Response:
+    def put(self, destination: str, **kwargs: Any) -> Response:
         headers = dict(Authorization=f'Bearer {self.token}')
         h = kwargs.get('headers', dict())
         if h:
@@ -76,6 +76,6 @@ class Github:
 class Pr(NamedTuple):
     number: int
     title: str
-    body: str
+    body: Optional[str]
     branch_head: str
-    author: Dict[str, str]
+    author: Dict[str, Optional[str|int]]
