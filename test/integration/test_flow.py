@@ -115,6 +115,13 @@ def _(context: Context, observed_pr: int, first: str, state: str, second: str) -
     compare_aliases(context, pr, first, state, second)
 
 
+@then(parsers.parse("- it is on top of PR '{other:d}'"))
+def _(context: Context, observed_pr: int, other: int) -> None:
+    above = context.branches.pr(observed_pr)
+    below = context.branches.pr(other)
+    assert git.hash_of(above.rebase) == git.hash_of(below.merge)
+
+
 @then(parsers.parse("Branch '{first}' {state} branch '{second}' {}"))
 @then(parsers.parse("Branch '{first}' {state} branch '{second}'"))
 def _(context: Context, first: str, state: str, second: str) -> None:

@@ -98,7 +98,7 @@ Feature: Successful flow
         But   - its marker 'source' matches its original commit
         And   - its marker 'merge' matches branch 'queue'
         #    , because 1 stayed in place but 2 was rebased
-        # TODO: also rebase of 2 is merge of 1
+        And   - it is on top of PR '1'
 
 
     Scenario: Cannot merge second PR with first in queue
