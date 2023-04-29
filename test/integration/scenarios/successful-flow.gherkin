@@ -55,3 +55,115 @@ Feature: Successful flow
             | 1  | merge  | no     |
             | 1  | bad    | no     |
             | 1  | source | no     |
+
+
+    Scenario: Enqueue second PR above first
+        Given PR '1' exists
+        And   PR '2' exists
+        And   PR '1' was enqueued
+
+        When Flow starts
+        Then Markers state is:
+            | PR | MARKER | EXISTS |
+            | 1  | rebase | yes    |
+            | 1  | merge  | yes    |
+            | 2  | rebase | no     |
+            | 2  | merge  | no     |
+            | 2  | bad    | no     |
+            | 2  | source | no     |
+        And  Branch 'target' does not match branch 'queue'
+
+        Given PR '1':
+        Then  - its marker 'head' matches its original commit
+        And   - its marker 'merge' matches branch 'queue'
+
+        Given PR '2':
+        Then   - its marker 'head' matches its original commit
+
+        When PR '2' is enqueued
+        Then Push was called '1' times
+        And  Branch 'target' does not match branch 'queue' still
+        And  Markers state is:
+            | PR | MARKER | EXISTS |
+            | 2  | rebase | yes    |
+            | 2  | merge  | yes    |
+            | 2  | bad    | no     |
+            | 2  | source | yes    |
+
+        Given PR '1':
+        Then  - its marker 'merge' does not match branch 'queue' now
+
+        Given PR '2':
+        Then  - its marker 'head' does not match its original commit anymore
+        But   - its marker 'source' matches its original commit
+        And   - its marker 'merge' matches branch 'queue'
+        #    , because 1 stayed in place but 2 was rebased
+        # TODO: also rebase of 2 is merge of 1
+
+
+    Scenario: Cannot merge second PR with first in queue
+        Given PR '1' exists
+        And   PR '2' exists
+        And   PR '1' was enqueued
+        And   PR '2' was enqueued
+
+        When Flow starts
+        Then PR '2' cannot be merged yet
+        And  Push was called '0' times
+
+
+    Scenario: Merge first PR in queue
+        Given PR '1' exists
+        And   PR '2' exists
+        And   PR '1' was enqueued
+        And   PR '2' was enqueued
+
+        When Flow starts
+        Then Branch 'target' does not match branch 'queue'
+        Given PR '2':
+        Then  - its marker 'rebase' does not match branch 'target' yet
+
+        When PR '1' is merged
+        Then Push was called '2' time
+        But  Branch 'target' does not match branch 'queue' still
+        And  Markers state is:
+            | PR | MARKER | EXISTS |
+            | 1  | head   | no     |
+            | 1  | rebase | no     |
+            | 1  | merge  | no     |
+            | 1  | bad    | no     |
+            | 1  | source | no     |
+            | 2  | rebase | yes    |
+            | 2  | merge  | yes    |
+            | 2  | bad    | no     |
+            | 2  | source | yes    |
+
+        Given PR '2':
+        Then  - its marker 'rebase' matches branch 'target' now
+        But   - its marker 'merge' does not match branch 'target' still
+        And   - its marker 'merge' matches branch 'queue' still
+
+
+    Scenario: Merge second PR in queue
+        Given PR '1' exists
+        And   PR '2' exists
+        And   PR '1' was enqueued
+        And   PR '2' was enqueued
+        And   PR '1' was merged
+
+        When Flow starts
+        Then  Branch 'target' does not match branch 'queue' yet
+        Given PR '2':
+        Then  - its marker 'rebase' matches branch 'target'
+        And   - its marker 'merge' matches branch 'queue'
+
+        When PR '2' is merged
+        Then Push was called '2' times
+        And  Branch 'target' matches branch 'queue' now
+        And  Markers state is:
+            | PR | MARKER | EXISTS |
+            | 2  | head   | no     |
+            | 2  | rebase | no     |
+            | 2  | merge  | no     |
+            | 2  | bad    | no     |
+            | 2  | source | no     |
