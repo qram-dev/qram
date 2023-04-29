@@ -73,18 +73,24 @@ def _(context: Context, num: int) -> None:
 
 
 @when('Flow starts')
-def _(context: Context) -> None:
-    pass
+def _(context: Context, mocked_git_push: MagicMock) -> None:
+    mocked_git_push.call_count = 0
 
 
-@then(parsers.parse("Markers exist:\n{markers:T}", extra_types={'T': datatable(int, str, str2bool)}))
+@then(parsers.parse("Markers state is:\n{markers:T}", extra_types={'T': datatable(int, str, str2bool)}))
 def _(context: Context, markers: DataTable[int, str, bool]) -> None:
     for pr, marker, state in markers:
         marker = translate_alias(marker, context.branches, context.pr[pr])
         assert git.branch_exists(marker) == state
 
 
+@given(parsers.parse("Observed PR is '{num:d}':"), target_fixture='observed_pr')
+def _(context: Context, num: int) -> int:
+    return num
+
+
 @when(parsers.parse("PR '{num:d}' is enqueued"))
+@given(parsers.parse("PR '{num:d}' was enqueued"))
 def _(context: Context, mocked_git_push: MagicMock, num: int) -> None:
     flow.prepare(num, context.gh, context.config)
     pr = context.pr[num]
@@ -98,10 +104,10 @@ def _(cnt: int, mocked_git_push: MagicMock) -> None:
     mocked_git_push.call_count = 0
 
 
-@then(parsers.parse("For PR '{prnum:d}', marker '{first}' {state} its {second} commit"))
-@then(parsers.parse("For PR '{prnum:d}', marker '{first}' {state} branch '{second}'"))
-def _(context: Context, prnum: int, first: str, state: str, second: str) -> None:
-    pr = context.pr[prnum]
+@then(parsers.parse("- its marker '{first}' {state} its {second} commit"))
+@then(parsers.parse("- its marker '{first}' {state} branch '{second}'"))
+def _(context: Context, observed_pr: int, first: str, state: str, second: str) -> None:
+    pr = context.pr[observed_pr]
     compare_aliases(context, pr, first, state, second)
 
 
