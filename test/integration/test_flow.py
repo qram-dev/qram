@@ -84,7 +84,9 @@ def _(context: Context, markers: DataTable[int, str, bool]) -> None:
         assert git.branch_exists(marker) == state
 
 
-@given(parsers.parse("Observed PR is '{num:d}':"), target_fixture='observed_pr')
+# despite `@given`, this step does not setup anything in the scenario itself, it is used only for
+# better flowing sentences
+@given(parsers.parse("PR '{num:d}':"), target_fixture='observed_pr')
 def _(context: Context, num: int) -> int:
     return num
 
@@ -105,18 +107,22 @@ def _(cnt: int, mocked_git_push: MagicMock) -> None:
 
 
 @then(parsers.parse("- its marker '{first}' {state} its {second} commit"))
+@then(parsers.parse("- its marker '{first}' {state} its {second} commit{}"))
 @then(parsers.parse("- its marker '{first}' {state} branch '{second}'"))
+@then(parsers.parse("- its marker '{first}' {state} branch '{second}'{}"))
 def _(context: Context, observed_pr: int, first: str, state: str, second: str) -> None:
     pr = context.pr[observed_pr]
     compare_aliases(context, pr, first, state, second)
 
 
+@then(parsers.parse("Branch '{first}' {state} branch '{second}' {}"))
 @then(parsers.parse("Branch '{first}' {state} branch '{second}'"))
 def _(context: Context, first: str, state: str, second: str) -> None:
     compare_aliases(context, None, first, state, second)
 
 
 @when(parsers.parse("PR '{num:d}' is merged"))
+@given(parsers.parse("PR '{num:d}' was merged"))
 def _(context: Context, num: int) -> None:
     flow.merge(num, context.gh, context.config)
 

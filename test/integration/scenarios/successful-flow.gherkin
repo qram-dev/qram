@@ -5,6 +5,8 @@ Feature: Successful flow
         Given PR '1' exists
 
         When Flow starts
+        # TODO: flow should always ensure 'queue' exists on start
+        # Then Branch 'target' does not match branch 'queue' anymore
         Then Markers state is:
             | PR | MARKER | EXISTS |
             | 1  | head   | yes    |
@@ -16,7 +18,7 @@ Feature: Successful flow
         When PR '1' is enqueued
         Then Push was called '1' time
         #    , for queue
-        But  Branch 'target' does not match branch 'queue'
+        And  Branch 'target' does not match branch 'queue' anymore
         # TODO: more specifically, *target is behind queue
         # TODO: check commit messages
         And  Markers state is:
@@ -27,8 +29,8 @@ Feature: Successful flow
             | 1  | bad    | no     |
             | 1  | source | yes    |
 
-        Given Observed PR is '1':
-        Then  - its marker 'head' matches its original commit
+        Given PR '1':
+        Then  - its marker 'head' matches its original commit still
         #   , because branch does not move if already on top
         And   - its marker 'source' matches its original commit
         And   - its marker 'rebase' matches branch 'target'
@@ -40,10 +42,12 @@ Feature: Successful flow
         And   PR '1' was enqueued
 
         When Flow starts
-        And  PR '1' is merged
+        Then Branch 'target' does not match branch 'queue' yet
+
+        When  PR '1' is merged
         Then Push was called '2' times
         #    , for pr head and for target branch
-        And  Branch 'target' matches branch 'queue'
+        And  Branch 'target' matches branch 'queue' now
         And  Markers state is:
             | PR | MARKER | EXISTS |
             | 1  | head   | no     |
