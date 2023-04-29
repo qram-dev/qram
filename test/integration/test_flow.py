@@ -1,5 +1,7 @@
 from pathlib import Path
 from types import SimpleNamespace
+from typing import Optional
+from unittest.mock import MagicMock
 
 import pytest
 from pytest_mock import MockerFixture
@@ -9,6 +11,7 @@ from qram import flow, git
 from qram.config import Config
 from qram.formatter import BranchFormatter
 from qram.github import Pr
+from test.integration import DataTable, datatable, str2bool
 
 from test.integration.mocks import GithubMock
 from .. import chdir
@@ -17,19 +20,34 @@ from .. import chdir
 scenarios('scenarios/successful-flow.gherkin')
 
 
+class PrInfo:
+    object: Pr
+    original: git.Hash
+    'original commit where PR branch was pointing'
+    rebased: git.Hash
+    'new commit where PR branch is pointing after rebase'
+
+    def __init__(self, object: Pr, original: git.Hash) -> None:
+        self.object = object
+        self.original = original
+
 class Context(SimpleNamespace):
     config: Config
     branches: BranchFormatter
     gh: GithubMock
-    pr: Pr
-    pr_branch_original_hash: str
-    branch_rebased: str
-    source: str
+    pr: dict[int, PrInfo]
+
+
+### fixtures
 
 
 @pytest.fixture()
-def context(repo_tar: Path, mocker: MockerFixture) -> Context:
-    mocker.patch('qram.git.push')
+def mocked_git_push(mocker: MockerFixture) -> MagicMock:
+    return mocker.patch('qram.git.push')
+
+
+@pytest.fixture()
+def context(repo_tar: Path) -> Context:
     cd = chdir(repo_tar)
     cd.__enter__()
     cfg = Config()
@@ -38,87 +56,107 @@ def context(repo_tar: Path, mocker: MockerFixture) -> Context:
         branches = BranchFormatter(cfg),
         gh = GithubMock(),
         cd = cd,
+        pr = dict(),
     )
 
-@given(parsers.parse('PR {num:d} exists'))
-def bdd1ff841b74b(context: Context, num: int) -> None:
-    context.pr = context.gh.get_pr(num)
-    context.pr_branch_original_hash = git.hash_of(context.pr.branch_head)
+
+### bdd
+
+
+@given(parsers.parse("PR '{num:d}' exists"))
+def _(context: Context, num: int) -> None:
+    p = context.gh.get_pr(num)
+    context.pr[num] = PrInfo(
+        object = p,
+        original = git.hash_of(p.branch_head)
+    )
 
 
 @when('Flow starts')
-def bdd966edddf2f(context: Context) -> None:
+def _(context: Context) -> None:
     pass
 
 
-@then('No markers exist except PR branch')
-def bdd9206dec454(context: Context) -> None:
-    branches_pr = context.branches.pr(context.pr.number)
-    context.all_branches_of_pr = [
-        branches_pr.rebase, branches_pr.bad, branches_pr.source, branches_pr.merge,
-    ]
-    for branch in context.all_branches_of_pr:
-        assert not git.branch_exists(branch)
+@then(parsers.parse("Markers exist:\n{markers:T}", extra_types={'T': datatable(int, str, str2bool)}))
+def _(context: Context, markers: DataTable[int, str, bool]) -> None:
+    for pr, marker, state in markers:
+        marker = translate_alias(marker, context.branches, context.pr[pr])
+        assert git.branch_exists(marker) == state
 
 
-@when(parsers.parse('PR {num:d} is enqueued'))
-def bdde2edbfedc7(context: Context, num: int) -> None:
-    flow.prepare(1, context.gh, context.config)
-    context.branch_rebased = git.hash_of(context.pr.branch_head)
-    context.source = git.hash_of(context.branches.pr(context.pr.number).source)
+@when(parsers.parse("PR '{num:d}' is enqueued"))
+def _(context: Context, mocked_git_push: MagicMock, num: int) -> None:
+    flow.prepare(num, context.gh, context.config)
+    pr = context.pr[num]
+    pr.rebased = git.hash_of(pr.object.branch_head)
 
 
-@then(parsers.parse('Push was called {cnt:d} time'))
-@then(parsers.parse('Push was called {cnt:d} times'))
-def bdd466fdfb405(cnt: int) -> None:
-    assert git.push.call_count == cnt
-    git.push.call_count = 0
+@then(parsers.parse("Push was called '{cnt:d}' time"))
+@then(parsers.parse("Push was called '{cnt:d}' times"))
+def _(cnt: int, mocked_git_push: MagicMock) -> None:
+    assert mocked_git_push.call_count == cnt
+    mocked_git_push.call_count = 0
 
 
-@then('Some new markers appear')
-def bdd57fb5d36b7(context: Context) -> None:
-    branches_pr = context.branches.pr(context.pr.number)
-    assert git.branch_exists(branches_pr.rebase)
-    assert not git.branch_exists(branches_pr.bad)
-    assert git.branch_exists(branches_pr.source)
-    assert git.branch_exists(branches_pr.merge)
+@then(parsers.parse("For PR '{prnum:d}', marker '{first}' {state} its {second} commit"))
+@then(parsers.parse("For PR '{prnum:d}', marker '{first}' {state} branch '{second}'"))
+def _(context: Context, prnum: int, first: str, state: str, second: str) -> None:
+    pr = context.pr[prnum]
+    compare_aliases(context, pr, first, state, second)
 
 
-@then('Source and rebase match original branch')
-def bdd2fe4ed68e1(context: Context) -> None:
-    source = git.hash_of(context.branches.pr(context.pr.number).source)
-    assert source == context.pr_branch_original_hash
-    branch_rebased = git.hash_of(context.pr.branch_head)
-    assert branch_rebased == context.pr_branch_original_hash
+@then(parsers.parse("Branch '{first}' {state} branch '{second}'"))
+def _(context: Context, first: str, state: str, second: str) -> None:
+    compare_aliases(context, None, first, state, second)
 
 
-@then('Merge-after-rebase matches new queue head')
-def bdd5efc04868c(context: Context) -> None:
-    queue = context.branches.queue
-    merge = context.branches.pr(context.pr.number).merge
-    assert git.hash_of(merge) == git.hash_of(queue)
-
-
-@then('Main does not match queue')
-def bddefbb73f51d(context: Context) -> None:
-    queue = context.branches.queue
-    target = context.branches.target
-    assert git.hash_of(target) != git.hash_of(queue)
-
-
-@when(parsers.parse('PR {num:d} is merged'))
-def bdd0cdc37c32f(context: Context, num: int) -> None:
+@when(parsers.parse("PR '{num:d}' is merged"))
+def _(context: Context, num: int) -> None:
     flow.merge(num, context.gh, context.config)
 
 
-@then('Markers disappear together with original branch')
-def bdd137d073088(context: Context) -> None:
-    for branch in [*context.all_branches_of_pr, context.pr.branch_head]:
-        assert not git.branch_exists(branch)
+### utils
 
 
-@then('Main now matches queue')
-def bdda23d20c9bb(context: Context) -> None:
-    queue = context.branches.queue
-    target = context.branches.target
-    assert git.hash_of(target) == git.hash_of(queue)
+def compare_aliases(context: Context, pr: Optional[PrInfo], first: str, state: str, second: str) -> None:
+    what_is = calculate_hash(first, context.branches, pr)
+    should_be = calculate_hash(second, context.branches, pr)
+    if state == 'matches':
+        assert what_is == should_be
+    elif state == 'does not match':
+        assert what_is != should_be
+    else:
+        raise ValueError(f'Unknown state: `{state}`')
+
+
+def translate_alias(
+        alias_from_datatable: str,
+        global_branches: BranchFormatter,
+        pr: Optional[PrInfo]=None
+) -> str:
+    if alias_from_datatable in ('target', 'queue'):
+        branch = global_branches.__getattribute__(alias_from_datatable)
+        assert type(branch) is str
+        return branch
+    if pr is None:
+        raise ValueError(f'PR object must be present for `{alias_from_datatable}` reference')
+    if alias_from_datatable == 'original':
+        # while not a branch, it is still viable input for `hash_of()`
+        return str(pr.original)
+    if alias_from_datatable == 'head':
+        return pr.object.branch_head
+    if alias_from_datatable in ('rebase', 'source', 'merge', 'bad'):
+        markers = global_branches.pr(pr.object.number)
+        marker = markers.__getattribute__(alias_from_datatable)
+        assert type(marker) is str
+        return marker
+    raise ValueError(f'Unknown reference: {alias_from_datatable}')
+
+
+def calculate_hash(
+        alias_from_datatable: str,
+        global_branches: BranchFormatter,
+        pr: Optional[PrInfo]=None
+    ) -> git.Hash:
+    branch = translate_alias(alias_from_datatable, global_branches, pr)
+    return git.hash_of(branch)

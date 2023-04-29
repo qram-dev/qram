@@ -7,7 +7,9 @@ from subprocess import (
     check_call as _check_call,
     check_output as _check_output
 )
-from typing import Any, Generator, List
+from typing import Any, Generator, List, NewType
+
+Hash = NewType('Hash', str)
 
 @contextmanager
 def switched_branch(branch: str, source: str='HEAD', anew: bool=False) -> Generator[None, None, None]:
@@ -27,8 +29,8 @@ def switched_branch(branch: str, source: str='HEAD', anew: bool=False) -> Genera
 def current_branch() -> str:
     return check_output(['rev-parse', '--abbrev-ref', 'HEAD']).strip()
 
-def hash_of(ref: str) -> str:
-    return check_output(['rev-parse', ref]).strip()
+def hash_of(ref: str) -> Hash:
+    return Hash(check_output(['rev-parse', ref]).strip())
 
 def genhash() -> str:
     def ch() -> str:

@@ -1,24 +1,45 @@
 Feature: Successful flow
-    We enqueue my PRs one by one and everything goes well.
+    We enqueue and merge PRs one by one; everything goes well.
 
-    Scenario: Merging one PR
-        Given PR 1 exists
+    Scenario: Enqueue one PR
+        Given PR '1' exists
 
         When Flow starts
-        Then No markers exist except PR branch
+        Then Markers exist:
+            | PR | MARKER | EXIST |
+            | 1  | head   | yes   |
+            | 1  | rebase | no    |
+            | 1  | merge  | no    |
+            | 1  | bad    | no    |
+            | 1  | source | no    |
 
-        When PR 1 is enqueued
-        Then Push was called 1 time
+        When PR '1' is enqueued
+        Then Push was called '1' time
         #    , for queue
-        And Some new markers appear
-        And Source and rebase match original branch
-        #   , because branch does not move for PR that is already on top
-        And Source and rebase match original branch
-        And Merge-after-rebase matches new queue head
-        And Main does not match queue
+        But  Branch 'target' does not match branch 'queue'
+        # TODO: more specifically, *target is behind queue
+        # TODO: check commit messages
+        And  Markers exist:
+            | PR | MARKER | EXIST |
+            | 1  | head   | yes   |
+            | 1  | rebase | yes   |
+            | 1  | merge  | yes   |
+            | 1  | bad    | no    |
+            | 1  | source | yes   |
+        And  For PR '1', marker 'source' matches its original commit
+        And  For PR '1', marker 'head' matches its original commit
+        #   , because branch does not move if already on top
+        And  For PR '1', marker 'rebase' matches branch 'target'
+        And  For PR '1', marker 'merge' matches branch 'queue'
 
-        When PR 1 is merged
-        Then Push was called 2 times
+        When PR '1' is merged
+        Then Push was called '2' times
+        And  Branch 'target' matches branch 'queue'
         #    , for pr branch and for main
-        And Markers disappear together with original branch
-        And Main now matches queue
+        And  Markers exist:
+            | PR | MARKER | EXIST |
+            | 1  | head   | no    |
+            | 1  | rebase | no    |
+            | 1  | merge  | no    |
+            | 1  | bad    | no    |
+            | 1  | source | no    |

@@ -23,7 +23,7 @@ def get_pr(num: int) -> Pr:
     )
 
 class GithubMock(Mock):
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
         self.get = Mock()
         self.post = Mock()
