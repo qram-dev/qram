@@ -68,10 +68,10 @@ def check_output(cmd: List[str], *a: Any, **kw: Any) -> str:
     return _check_output(cmd, *a, **kw).decode()
 
 
-def extract_branches_from_line(line: str, remote_list=['origin']) -> List[str]:
+def extract_branches_from_line(line: str, remote_list: List[str]=['origin']) -> List[str]:
     remotes = tuple(f'{x.rstrip("/")}/' for x in remote_list)
     split = line.strip().split(', ')
-    result = []
+    result: List[str] = []
     for x in split:
         if not x:
             continue

@@ -19,6 +19,8 @@ def merge(pr_num: int, gh: Github, config: Config) -> None:
     # sanity checks
     if not git.branch_exists(branches_pr.merge):
         raise RuntimeError(f'Cannot merge PR-{pr_num}: its branch {pr.branch_head} has not been prepared yet')
+    if not git.branch_exists(branches_pr.good):
+        raise RuntimeError(f'Cannot merge PR-{pr_num}: it is not marked as good')
     if git.branch_exists(branches_pr.bad):
         raise RuntimeError(f'Cannot merge PR-{pr_num}: it is marked as bad')
     merges = find_merges_before(branches_pr.merge, branches_global.target)
@@ -30,14 +32,13 @@ def merge(pr_num: int, gh: Github, config: Config) -> None:
     with git.switched_branch(branches_pr.merge):
         git.check_call(['branch', branches_global.target, '-f', 'HEAD'])
 
-    # first push pr branch, then push target; do it in 2 separate pushes - otherwise github loses
+    # First push pr branch, then push target, do it in 2 separate pushes. Otherwise github loses
     # its head and displays sillyness in PR commit list
     git.push(pr.branch_head, True)
     git.push(branches_global.target)
-    for b in [
-        branches_pr.merge, branches_pr.source, branches_pr.rebase, pr.branch_head
-    ]:
-        git.check_call(['branch', '-D', b])
+    git.check_call(['branch', '-D',
+        branches_pr.merge, branches_pr.source, branches_pr.rebase, branches_pr.good, pr.branch_head
+    ])
 
 
 
@@ -81,38 +82,11 @@ def prepare(pr_num: int, gh: Github, config: Config) -> None:
     # once we enqueued branch, it is no longer bad until we receive new status from ci
     if git.branch_exists(branches_pr.bad):
         git.check_call(['branch', '-D', branches_pr.bad])
+    if git.branch_exists(branches_pr.good):
+        git.check_call(['branch', '-D', branches_pr.good])
 
 
-def mark_merge_bad(pr_num: int, gh: Github, config: Config) -> None:
-    """
-    Given merge X for which we got FAILURE from CI:
-    - mark X as bad merge
-    - find earliest merge below X that is not bad
-    - drop existing queue above X
-    - rebase everything above X to good merge, or to main if none found
-    """
-    branches_global = BranchFormatter(config)
-    branches_bad_pr = branches_global.pr(pr_num)
-    git.check_call(['branch', '-f', branches_bad_pr.bad, branches_bad_pr.merge])
-
-    # if there are no merges before us, at least rebase onto main branch
-    not_bad_merges = (
-        candidate for candidate, branches in
-        find_merges_before(branches_bad_pr.bad, config.target_branch, include_target_branch=True)
-        if not any(b.endswith('/' + PrFormatter.POSTFIX_BAD) for b in branches)
-    )
-    destination = next(not_bad_merges)
-
-    prs_above = [
-        branches_bad_pr.extract_pr_from_branch_list(branches, config)
-        for _, branches in find_merges_after(branches_bad_pr.bad, branches_global.queue)
-    ]
-    git.check_call(['branch', '-f', branches_global.queue, destination])
-    git.check_call(['branch', '-D', branches_bad_pr.merge, branches_bad_pr.rebase])
-
-    for pr_num in prs_above:
-        pr_branch = gh.get_pr(pr_num).branch_head
-        branches_above = branches_global.pr(pr_num)
-        for b in pr_branch, branches_above.merge, branches_above.rebase:
-            git.check_output(['branch', '-D', b])
-        prepare(pr_num, gh, config)
+def mark_merge(pr_num: int, config: Config, ci_ok: bool) -> None:
+    branches = BranchFormatter(config).pr(pr_num)
+    marker = branches.good if ci_ok else branches.bad
+    git.check_call(['branch', '-f', marker, branches.merge])

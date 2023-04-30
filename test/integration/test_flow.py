@@ -18,6 +18,7 @@ from .. import chdir
 
 
 scenarios('scenarios/successful-flow.gherkin')
+scenarios('scenarios/forbidden-flow.gherkin')
 
 
 class PrInfo:
@@ -139,6 +140,24 @@ def _(context: Context, num: int) -> None:
         flow.merge(num, context.gh, context.config)
 
 
+@when(parsers.parse("PR '{num:d}' is marked '{state}'"))
+@given(parsers.parse("PR '{num:d}' was marked '{state}'"))
+def _(context: Context, num: int, state: str) -> None:
+    if state == 'good':
+        ok = True
+    elif state == 'bad':
+        ok = False
+    else:
+        raise ValueError(f'Unknown state: `{state}`')
+    flow.mark_merge(num, context.config, ok)
+
+
+@then(parsers.parse("PR '{num:d}' cannot be merged yet"))
+def _(context: Context, num: int) -> None:
+    with pytest.raises(Exception):
+        flow.merge(num, context.gh, context.config)
+
+
 ### utils
 
 
@@ -169,7 +188,7 @@ def translate_alias(
         return str(pr.original)
     if alias_from_datatable == 'head':
         return pr.object.branch_head
-    if alias_from_datatable in ('rebase', 'source', 'merge', 'bad'):
+    if alias_from_datatable in ('rebase', 'source', 'merge', 'bad', 'good'):
         markers = global_branches.pr(pr.object.number)
         marker = markers.__getattribute__(alias_from_datatable)
         assert type(marker) is str

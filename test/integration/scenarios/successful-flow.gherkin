@@ -13,6 +13,7 @@ Feature: Successful flow
             | 1  | rebase | no     |
             | 1  | merge  | no     |
             | 1  | bad    | no     |
+            | 1  | good   | no     |
             | 1  | source | no     |
 
         When PR '1' is enqueued
@@ -27,6 +28,7 @@ Feature: Successful flow
             | 1  | rebase | yes    |
             | 1  | merge  | yes    |
             | 1  | bad    | no     |
+            | 1  | good   | no     |
             | 1  | source | yes    |
 
         Given PR '1':
@@ -37,9 +39,35 @@ Feature: Successful flow
         And   - its marker 'merge' matches branch 'queue'
 
 
-    Scenario: Merge enqueued PR
+    Scenario: Mark enqueued PR as good
         Given PR '1' exists
         And   PR '1' was enqueued
+
+        When Flow starts
+        Then Markers state is:
+            | PR | MARKER | EXISTS |
+            | 1  | head   | yes    |
+            | 1  | rebase | yes    |
+            | 1  | merge  | yes    |
+            | 1  | bad    | no     |
+            | 1  | good   | no     |
+            | 1  | source | yes    |
+
+        When  PR '1' is marked 'good'
+        Then Markers state is:
+            | PR | MARKER | EXISTS |
+            | 1  | head   | yes    |
+            | 1  | rebase | yes    |
+            | 1  | merge  | yes    |
+            | 1  | bad    | no     |
+            | 1  | good   | yes    |
+            | 1  | source | yes    |
+
+
+    Scenario: Can merge enqueued PR marked good
+        Given PR '1' exists
+        And   PR '1' was enqueued
+        And   PR '1' was marked 'good'
 
         When Flow starts
         Then Branch 'target' does not match branch 'queue' yet
@@ -54,6 +82,7 @@ Feature: Successful flow
             | 1  | rebase | no     |
             | 1  | merge  | no     |
             | 1  | bad    | no     |
+            | 1  | good   | no     |
             | 1  | source | no     |
 
 
@@ -70,6 +99,7 @@ Feature: Successful flow
             | 2  | rebase | no     |
             | 2  | merge  | no     |
             | 2  | bad    | no     |
+            | 2  | good   | no     |
             | 2  | source | no     |
         And  Branch 'target' does not match branch 'queue'
 
@@ -88,6 +118,7 @@ Feature: Successful flow
             | 2  | rebase | yes    |
             | 2  | merge  | yes    |
             | 2  | bad    | no     |
+            | 2  | good   | no     |
             | 2  | source | yes    |
 
         Given PR '1':
@@ -101,22 +132,12 @@ Feature: Successful flow
         And   - it is on top of PR '1'
 
 
-    Scenario: Cannot merge second PR with first in queue
-        Given PR '1' exists
-        And   PR '2' exists
-        And   PR '1' was enqueued
-        And   PR '2' was enqueued
-
-        When Flow starts
-        Then PR '2' cannot be merged yet
-        And  Push was called '0' times
-
-
     Scenario: Merge first PR in queue
         Given PR '1' exists
         And   PR '2' exists
         And   PR '1' was enqueued
         And   PR '2' was enqueued
+        And   PR '1' was marked 'good'
 
         When Flow starts
         Then Branch 'target' does not match branch 'queue'
@@ -132,10 +153,12 @@ Feature: Successful flow
             | 1  | rebase | no     |
             | 1  | merge  | no     |
             | 1  | bad    | no     |
+            | 1  | good   | no     |
             | 1  | source | no     |
             | 2  | rebase | yes    |
             | 2  | merge  | yes    |
             | 2  | bad    | no     |
+            | 2  | good   | no     |
             | 2  | source | yes    |
 
         Given PR '2':
@@ -149,7 +172,9 @@ Feature: Successful flow
         And   PR '2' exists
         And   PR '1' was enqueued
         And   PR '2' was enqueued
+        And   PR '1' was marked 'good'
         And   PR '1' was merged
+        And   PR '2' was marked 'good'
 
         When Flow starts
         Then  Branch 'target' does not match branch 'queue' yet
@@ -166,4 +191,5 @@ Feature: Successful flow
             | 2  | rebase | no     |
             | 2  | merge  | no     |
             | 2  | bad    | no     |
+            | 2  | good   | no     |
             | 2  | source | no     |

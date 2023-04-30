@@ -22,6 +22,7 @@ class BranchFormatter:
 class PrFormatter:
     POSTFIX_MERGE = 'merge-after-rebase'
     POSTFIX_BAD = 'bad'
+    POSTFIX_GOOD = 'good'
     POSTFIX_REBASe = 'rebase-target'
     POSTFIX_SOURCE = 'source'
     rebase: str
@@ -36,6 +37,7 @@ class PrFormatter:
         self.merge = f'{config.branch_folder}/pr{pr}/{PrFormatter.POSTFIX_MERGE}'
         self.source = f'{config.branch_folder}/pr{pr}/{PrFormatter.POSTFIX_SOURCE}'
         self.bad = f'{config.branch_folder}/pr{pr}/{PrFormatter.POSTFIX_BAD}'
+        self.good = f'{config.branch_folder}/pr{pr}/{PrFormatter.POSTFIX_GOOD}'
 
     @staticmethod
     def extract_pr_from_branch(branch: str, config: Config) -> int:
