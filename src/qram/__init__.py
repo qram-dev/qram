@@ -1,14 +1,16 @@
+import re
+
 from itertools import takewhile
-from typing import Iterable, List, Optional, Tuple
+from typing import Callable, Iterable, List, Tuple, TypeVar
 
 from jinja2 import Environment
 
-import qram.git as git
+from qram import git
 from qram.config import Config
 from qram.formatter import PrFormatter
 from qram.github import Pr
 
-CommitAndBranches = Tuple[str, List[str]]
+CommitAndBranches = Tuple[git.Hash, List[str]]
 
 
 def format_merge_message(pr: Pr, config: Config) -> str:
@@ -31,35 +33,40 @@ def format_author(pr: Pr) -> str:
     return f'{username} <{email}>'
 
 
-def find_merges_before(ref: str, target_branch: str, *, include_target_branch: bool=False) -> List[CommitAndBranches]:
-    log = _get_log(f'{ref}^')
-    log_after_main = takewhile(lambda tpl: target_branch not in tpl[1], log)
-    merges_in_log = _extract_merges(log_after_main, target_branch if include_target_branch else None)
-    return list(merges_in_log)
-
-
-def find_merges_after(ref: str, queue_branch: str) -> List[CommitAndBranches]:
-    log = _get_log(queue_branch)
-    log_after_ref = takewhile(lambda tpl: ref not in tpl[1], log)
-    merges_in_log = _extract_merges(log_after_ref)
-    # we iterated log from newest to oldest above - but better rebase branches in order they were merged
-    return list(reversed(list(merges_in_log)))
-
-
-def _get_log(head: str) -> Iterable[Tuple[str, List[str]]]:
-    SEP = ' - '
-    log = git.check_output(['log', f'--format=format:%h{SEP}%D', f'{head}']).splitlines()
-    splits = (tuple(line.split(SEP)) for line in log)
-    for hash, branches_line in splits:
-        branches = git.extract_branches_from_line(branches_line)
-        if branches:
+def collect_staging(staging_branch: str, target_branch: str) -> Iterable[CommitAndBranches]:
+    log = git.log(staging_branch)
+    queue = takewhile(lambda tpl: target_branch not in tpl[1], log)
+    for hash, branches in queue:
+        if any(
+            b.endswith(PrFormatter.POSTFIX_MERGE)
+            for b in branches
+        ):
             yield hash, branches
 
-def _extract_merges(log: Iterable[Tuple[str, List[str]]], with_branch: Optional[str]=None) -> Iterable[CommitAndBranches]:
-    """Get all commit+branch pairs where branch is a merge marker. If `with_target_branch` is specified,
-        check also whether branch is the `main` branch to which merges are directed.
-    """
-    for hash, branches in log:
-        has_merges = any(b for b in branches if b.endswith(PrFormatter.POSTFIX_MERGE))
-        if has_merges or (with_branch and with_branch in branches):
-            yield hash, branches
+
+def rebase_queue_onto(target: git.Hash, start: git.Hash, stop: git.Hash|str) -> None:
+    pass
+
+
+def extract_pr_from_merge(branch: str, config: Config) -> int:
+    prefix = config.branch_folder
+    postfix = PrFormatter.POSTFIX_MERGE
+    REGEX = re.compile(f'{prefix}/pr(\\d+)/({postfix})')
+    m = REGEX.search(branch)
+    assert m is not None, f'string {branch} does not match regex'
+    return int(m.group(1))
+
+
+def extract_pr_from_branch_list(branches: List[str], config: Config) -> int:
+    for b in branches:
+        if b.endswith(PrFormatter.POSTFIX_MERGE):
+            return extract_pr_from_merge(b, config)
+    raise RuntimeError(f'No merge postfix among branches: {branches}')
+
+
+T = TypeVar('T')
+def takewhile_inclusive(predicate: Callable[[T], bool], iterable: Iterable[T]) -> Iterable[T]:
+    for x in iterable:
+        yield x
+        if predicate(x):
+            break

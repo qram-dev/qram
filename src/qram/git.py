@@ -7,7 +7,7 @@ from subprocess import (
     check_call as _check_call,
     check_output as _check_output
 )
-from typing import Any, Generator, List, NewType
+from typing import Any, Generator, Iterable, List, NewType, Tuple
 
 Hash = NewType('Hash', str)
 
@@ -48,6 +48,20 @@ def push(x: str, force: bool=True) -> None:
 
 def branch_exists(x: str) -> bool:
     return call(['show-ref', '--verify', '--quiet', f'refs/heads/{x}'])
+
+def log(head: str|Hash) -> Iterable[Tuple[Hash, List[str]]]:
+    """
+    For each commit reachable from `head`, get (hash, [branch1, branch2, ...])
+    """
+    SEP = ' - '
+    log = check_output([
+        'log', f'--format=format:%h{SEP}%D', f'{head}'
+    ]).splitlines()
+    splits = (tuple(line.split(SEP)) for line in log)
+    for hash, branches_line in splits:
+        branches = extract_branches_from_line(branches_line)
+        if branches:
+            yield Hash(hash), branches
 
 
 def call(cmd: List[str], *a: Any, **kw: Any) -> bool:

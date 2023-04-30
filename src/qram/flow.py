@@ -1,8 +1,7 @@
 
 import qram.git as git
 from qram import (
-    find_merges_after,
-    find_merges_before,
+    collect_staging,
     format_author,
     format_merge_message,
 )
@@ -23,10 +22,9 @@ def merge(pr_num: int, gh: Github, config: Config) -> None:
         raise RuntimeError(f'Cannot merge PR-{pr_num}: it is not marked as good')
     if git.branch_exists(branches_pr.bad):
         raise RuntimeError(f'Cannot merge PR-{pr_num}: it is marked as bad')
-    merges = find_merges_before(branches_pr.merge, branches_global.target)
-    # FIXME: need also check for /bad's !!
-    if merges:
-        raise RuntimeError(f'Cannot merge PR-{pr_num}: other PRs present in queue:\n{merges}')
+    obstacles = list(collect_staging(f'{branches_pr.merge}~1', branches_global.target))
+    if obstacles:
+        raise RuntimeError(f'Cannot merge PR-{pr_num}: other PRs present in queue:\n{obstacles}')
 
     # switch in case we are currently on target branch
     with git.switched_branch(branches_pr.merge):
@@ -39,7 +37,6 @@ def merge(pr_num: int, gh: Github, config: Config) -> None:
     git.check_call(['branch', '-D',
         branches_pr.merge, branches_pr.source, branches_pr.rebase, branches_pr.good, pr.branch_head
     ])
-
 
 
 def prepare(pr_num: int, gh: Github, config: Config) -> None:

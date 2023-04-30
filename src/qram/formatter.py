@@ -38,27 +38,3 @@ class PrFormatter:
         self.source = f'{config.branch_folder}/pr{pr}/{PrFormatter.POSTFIX_SOURCE}'
         self.bad = f'{config.branch_folder}/pr{pr}/{PrFormatter.POSTFIX_BAD}'
         self.good = f'{config.branch_folder}/pr{pr}/{PrFormatter.POSTFIX_GOOD}'
-
-    @staticmethod
-    def extract_pr_from_branch(branch: str, config: Config) -> int:
-        prefix = config.branch_folder
-        postfix = '|'.join([
-            PrFormatter.POSTFIX_MERGE, PrFormatter.POSTFIX_BAD,
-            PrFormatter.POSTFIX_REBASe, PrFormatter.POSTFIX_SOURCE
-        ])
-        REGEX = re.compile(f'{prefix}/pr(\\d+)/({postfix})')
-        m = REGEX.search(branch)
-        assert m is not None, f'string {branch} does not match regex'
-        return int(m.group(1))
-
-    @staticmethod
-    def extract_pr_from_branch_list(branches: List[str], config: Config) -> int:
-        postfixes = [
-            PrFormatter.POSTFIX_MERGE, PrFormatter.POSTFIX_BAD,
-            PrFormatter.POSTFIX_REBASe, PrFormatter.POSTFIX_SOURCE
-        ]
-        for b in branches:
-            for p in postfixes:
-                if b.endswith(p):
-                    return PrFormatter.extract_pr_from_branch(b, config)
-        raise RuntimeError(f'No valid postfix among branches: {branches}')
