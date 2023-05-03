@@ -85,5 +85,12 @@ def prepare(pr_num: int, gh: Github, config: Config) -> None:
 
 def mark_merge(pr_num: int, config: Config, ci_ok: bool) -> None:
     branches = BranchFormatter(config).pr(pr_num)
-    marker = branches.good if ci_ok else branches.bad
-    git.check_call(['branch', '-f', marker, branches.merge])
+    if ci_ok:
+        add = branches.good
+        remove = branches.bad
+    else:
+        add = branches.bad
+        remove = branches.good
+    git.check_call(['branch', '-f', add, branches.merge])
+    if git.branch_exists(remove):
+        git.check_call(['branch', '-D', remove])

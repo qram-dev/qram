@@ -134,6 +134,7 @@ def _(context: Context, first: str, state: str, second: str) -> None:
 def _(context: Context, num: int) -> None:
     flow.merge(num, context.gh, context.config)
 
+
 @then(parsers.parse("PR '{num:d}' cannot be merged yet"))
 def _(context: Context, num: int) -> None:
     with pytest.raises(Exception):

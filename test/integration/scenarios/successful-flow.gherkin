@@ -64,6 +64,32 @@ Feature: Successful flow
             | 1  | source | yes    |
 
 
+    Scenario: Previously marked bad PR is now marked good
+        Given PR '1' exists
+        And   PR '1' was enqueued
+        And   PR '1' was marked 'bad'
+
+        When Flow starts
+        Then Markers state is:
+            | PR | MARKER | EXISTS |
+            | 1  | head   | yes    |
+            | 1  | rebase | yes    |
+            | 1  | merge  | yes    |
+            | 1  | bad    | yes    |
+            | 1  | good   | no     |
+            | 1  | source | yes    |
+
+        When  PR '1' is marked 'good'
+        Then Markers state is:
+            | PR | MARKER | EXISTS |
+            | 1  | head   | yes    |
+            | 1  | rebase | yes    |
+            | 1  | merge  | yes    |
+            | 1  | bad    | no     |
+            | 1  | good   | yes    |
+            | 1  | source | yes    |
+
+
     Scenario: Can merge enqueued PR marked good
         Given PR '1' exists
         And   PR '1' was enqueued
