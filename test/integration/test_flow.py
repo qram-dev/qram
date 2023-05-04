@@ -1,3 +1,4 @@
+import logging
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Optional
@@ -48,7 +49,11 @@ def mocked_git_push(mocker: MockerFixture) -> MagicMock:
 
 
 @pytest.fixture()
-def context(repo_tar: Path) -> Context:
+def context(repo_tar: Path, caplog: pytest.LogCaptureFixture) -> Context:
+    caplog.set_level(logging.INFO)
+    caplog.handler.setFormatter(logging.Formatter(
+        '{levelname:5} : {name:10} : {message}', style='{',
+    ))
     cd = chdir(repo_tar)
     cd.__enter__()
     cfg = Config()

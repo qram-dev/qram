@@ -1,6 +1,5 @@
-import logging
-
 from contextlib import contextmanager
+from logging import getLogger
 from random import choice
 from subprocess import (
     call as _call,
@@ -8,6 +7,9 @@ from subprocess import (
     check_output as _check_output
 )
 from typing import Any, Generator, Iterable, List, NewType, Tuple
+
+
+logger = getLogger(__name__)
 
 Hash = NewType('Hash', str)
 
@@ -66,19 +68,19 @@ def log(head: str|Hash) -> Iterable[Tuple[Hash, List[str]]]:
 
 def call(cmd: List[str], *a: Any, **kw: Any) -> bool:
     cmd = ['git'] + cmd
-    logging.info(f'CMD: {" ".join(cmd)}' + (f'| {kw}' if kw else ''))
+    logger.info(f'CMD: {" ".join(cmd)}' + (f'| {kw}' if kw else ''))
     c = _call(cmd, *a, **kw)
-    logging.info(f'--> {c}')
+    logger.info(f'--> {c}')
     return c == 0
 
 def check_call(cmd: List[str], *a: Any, **kw: Any) -> None:
     cmd = ['git'] + cmd
-    logging.info(f'CMD: {" ".join(cmd)}' + (f'| {kw}' if kw else ''))
+    logger.info(f'CMD: {" ".join(cmd)}' + (f'| {kw}' if kw else ''))
     _check_call(cmd, *a, **kw)
 
 def check_output(cmd: List[str], *a: Any, **kw: Any) -> str:
     cmd = ['git'] + cmd
-    logging.info(f'CMD: {" ".join(cmd)}' + (f'| {kw}' if kw else ''))
+    logger.info(f'CMD: {" ".join(cmd)}' + (f'| {kw}' if kw else ''))
     return _check_output(cmd, *a, **kw).decode()
 
 
