@@ -1,0 +1,104 @@
+Feature: Bad flow
+    One of PRs in queue is marked as bad, causing queue to reorder
+
+
+    Scenario: The only bad PR in staging is shaken off
+        Given PR '1' exists
+        And   PR '1' was enqueued
+        And   Pr '1' was marked 'bad'
+
+        When Flow starts
+        Then Markers state is:
+            | PR | MARKER | EXISTS |
+            | 1  | head   | yes    |
+            | 1  | merge  | yes    |
+            | 1  | bad    | yes    |
+            | 1  | good   | no     |
+            | 1  | source | yes    |
+        And  Branch 'queue' does not match branch 'target' yet
+        And  For PR '1':
+        And  - its marker 'bad' matches branch 'queue'
+
+        When Stage is shaken
+        Then Push was called '0' times
+        And  Markers state is:
+            | PR | MARKER | EXISTS |
+            | 1  | head   | yes    |
+            | 1  | merge  | yes    |
+            | 1  | bad    | yes    |
+            | 1  | good   | no     |
+            | 1  | source | yes    |
+        And  Branch 'queue' matches branch 'target' now
+        And  For PR '1':
+        And  - its marker 'merge' does not match branch 'queue' anymore
+
+
+    Scenario: Bad first PR in queue of two is shaken off, undecided second is rebased
+        Given PR '1' exists
+        And   PR '2' exists
+        And   PR '1' was enqueued
+        And   PR '2' was enqueued
+        And   Pr '1' was marked 'bad'
+
+        When Flow starts
+        Then For PR '2':
+        And  - its marker 'merge' matches branch 'queue'
+        And  - it is on top of PR '1'
+
+        When Stage is shaken
+        Then Push was called '1' times
+        #    , for new queue with pr 2
+        And  Markers state is:
+            | PR | MARKER | EXISTS |
+            | 1  | bad    | yes    |
+            | 2  | rebase | yes    |
+            | 2  | merge  | yes    |
+            | 2  | bad    | no     |
+        And For PR '2':
+        And  - its marker 'merge' matches branch 'queue' still
+        And  - its marker 'rebase' matches branch 'target' now
+
+
+    Scenario: Bad second PR in queue of two is ignored when first still undecided
+        Given PR '1' exists
+        And   PR '2' exists
+        And   PR '1' was enqueued
+        And   PR '2' was enqueued
+        And   Pr '2' was marked 'bad'
+
+        When Flow starts
+        Then For PR '2':
+        And  - its marker 'merge' matches branch 'queue'
+        And  - it is on top of PR '1'
+
+        When Stage is shaken
+        Then Push was called '0' times
+        And  For PR '2':
+        And  - its marker 'merge' matches branch 'queue' still
+        And  - it is on top of PR '1' still
+
+
+    Scenario: Bad first PR in queue of two is shaken off, undecided second is rebased
+        Given PR '1' exists
+        And   PR '2' exists
+        And   PR '1' was enqueued
+        And   PR '2' was enqueued
+        And   Pr '1' was marked 'bad'
+
+        When Flow starts
+        Then For PR '2':
+        And  - its marker 'merge' matches branch 'queue'
+        And  - it is on top of PR '1'
+
+        When Stage is shaken
+        Then Push was called '1' times
+        #    , for new queue with pr 2
+        And  Markers state is:
+            | PR | MARKER | EXISTS |
+            | 1  | bad    | yes    |
+            | 2  | rebase | yes    |
+            | 2  | merge  | yes    |
+            | 2  | bad    | no     |
+        And For PR '2':
+        And  - its marker 'merge' matches branch 'queue' still
+        And  - its marker 'rebase' matches branch 'target'

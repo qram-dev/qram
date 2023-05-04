@@ -19,7 +19,7 @@ from .. import chdir
 
 
 scenarios('scenarios/successful-flow.gherkin')
-scenarios('scenarios/forbidden-flow.gherkin')
+scenarios('scenarios/bad-flow.gherkin')
 
 
 class PrInfo:
@@ -92,6 +92,7 @@ def _(context: Context, markers: DataTable[int, str, bool]) -> None:
 
 # despite `@given`, this step does not setup anything in the scenario itself, it is used only for
 # better flowing sentences
+@then(parsers.parse("For PR '{num:d}':"), target_fixture='observed_pr')
 @given(parsers.parse("PR '{num:d}':"), target_fixture='observed_pr')
 def _(context: Context, num: int) -> int:
     return num
@@ -121,6 +122,7 @@ def _(context: Context, observed_pr: int, first: str, state: str, second: str) -
     compare_aliases(context, pr, first, state, second)
 
 
+@then(parsers.parse("- it is on top of PR '{other:d}' {}"))
 @then(parsers.parse("- it is on top of PR '{other:d}'"))
 def _(context: Context, observed_pr: int, other: int) -> None:
     above = context.branches.pr(observed_pr)
@@ -134,16 +136,10 @@ def _(context: Context, first: str, state: str, second: str) -> None:
     compare_aliases(context, None, first, state, second)
 
 
-@when(parsers.parse("PR '{num:d}' is merged"))
-@given(parsers.parse("PR '{num:d}' was merged"))
-def _(context: Context, num: int) -> None:
-    flow.merge(num, context.gh, context.config)
-
-
-@then(parsers.parse("PR '{num:d}' cannot be merged yet"))
-def _(context: Context, num: int) -> None:
-    with pytest.raises(Exception):
-        flow.merge(num, context.gh, context.config)
+@when(parsers.parse("Stage is shaken"))
+@given(parsers.parse("Stage was shaken"))
+def _(context: Context) -> None:
+    flow.shake_stage(context.gh, context.config)
 
 
 @when(parsers.parse("PR '{num:d}' is marked '{state}'"))
@@ -161,7 +157,7 @@ def _(context: Context, num: int, state: str) -> None:
 @then(parsers.parse("PR '{num:d}' cannot be merged yet"))
 def _(context: Context, num: int) -> None:
     with pytest.raises(Exception):
-        flow.merge(num, context.gh, context.config)
+        flow._merge(num, context.gh, context.config)
 
 
 ### utils

@@ -44,10 +44,6 @@ def collect_staging(staging_branch: str, target_branch: str) -> Iterable[CommitA
             yield hash, branches
 
 
-def rebase_queue_onto(target: git.Hash, start: git.Hash, stop: git.Hash|str) -> None:
-    pass
-
-
 def extract_pr_from_merge(branch: str, config: Config) -> int:
     prefix = config.branch_folder
     postfix = PrFormatter.POSTFIX_MERGE

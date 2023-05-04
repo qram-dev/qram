@@ -1,10 +1,13 @@
 from logging import getLogger
+from typing import Iterable
 
 import qram.git as git
 from qram import (
+    CommitAndBranches,
     collect_staging,
     format_author,
     format_merge_message,
+    extract_pr_from_branch_list,
 )
 from qram.config import Config
 from qram.formatter import BranchFormatter, PrFormatter
@@ -12,6 +15,7 @@ from qram.github import Github
 
 logger = getLogger(__name__)
 
+def _merge(pr_num: int, gh: Github, config: Config) -> None:
     logger.info(f'merge started for #{pr_num}')
     pr = gh.get_pr(pr_num)
     branches_global = BranchFormatter(config)
@@ -101,6 +105,7 @@ def prepare(pr_num: int, gh: Github, config: Config) -> None:
 
 
 def mark_merge(pr_num: int, config: Config, ci_ok: bool) -> None:
+    # FIXME: marking from CI/github will be done upon hash!! NOT upon PR number!
     logger.info(f'mark started for #{pr_num}')
     branches = BranchFormatter(config).pr(pr_num)
     if ci_ok:
@@ -113,3 +118,57 @@ def mark_merge(pr_num: int, config: Config, ci_ok: bool) -> None:
     if git.branch_exists(remove):
         git.check_call(['branch', '-D', remove])
     logger.info(f'mark completed for #{pr_num}')
+
+
+def shake_stage(gh: Github, config: Config) -> None:
+    logger.info('shake started')
+    branches_global = BranchFormatter(config)
+    stage = list(reversed(list(collect_staging(branches_global.queue, branches_global.target))))
+    logger.info('stage collected:' + ''.join(f'\n - {x}' for x in stage))
+    for idx, (hash, branches) in enumerate(stage):
+        pr = extract_pr_from_branch_list(branches, config)
+        logger.info(f'check {hash} - #{pr}')
+        branches_pr = branches_global.pr(pr)
+        abort = False
+        if branches_pr.good in branches and branches_pr.bad in branches:
+            err = f'both {branches_pr.good} and {branches_pr.bad} are present on {hash}'
+            logger.error(err)
+            raise RuntimeError(err)
+
+        if branches_pr.good in branches:
+            logger.info('pr is good, merge it')
+            _merge(pr, gh, config)
+        elif branches_pr.bad in branches:
+            logger.info('pr is bad, rebase remaining queue')
+            # only way to get here should be if previous pr on stage was good. Ergo - it was merged,
+            # target now points to its merge, and we should rebase onto it
+            remaining = stage[idx+1:]
+            _rebase_queue_onto(branches_global.target, remaining, gh, config)
+            abort = True
+        else:
+            abort = True
+        if abort:
+            logger.info('shake completed, ignore rest of queue')
+            return
+    logger.info('shake completed, nothing left')
+
+
+def _rebase_queue_onto(target: str, remaining: Iterable[CommitAndBranches], gh: Github, config: Config) -> None:
+    logger.info('queue rebase started')
+    branches_global = BranchFormatter(config)
+    git.check_call(['branch', '-f', branches_global.queue, target])
+    for hash, branches in remaining:
+        pr = extract_pr_from_branch_list(branches, config)
+        logger.info(f'rebasing {hash} - #{pr}')
+        branches_pr = branches_global.pr(pr)
+        if branches_pr.good in branches and branches_pr.bad in branches:
+            err = f'both {branches_pr.good} and {branches_pr.bad} are present on {hash}'
+            logger.error(err)
+            raise RuntimeError(err)
+        if branches_pr.bad in branches:
+            logger.info('pr was marked bad, ignore it')
+            continue
+        else:
+            logger.info('pr is not bad, re-enqueue it')
+            prepare(pr, gh, config)
+    logger.info('queue rebase completed')

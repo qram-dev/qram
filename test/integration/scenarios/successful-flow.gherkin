@@ -90,7 +90,7 @@ Feature: Successful flow
             | 1  | source | yes    |
 
 
-    Scenario: Can merge enqueued PR marked good
+    Scenario: Single good PR in queue gets merged
         Given PR '1' exists
         And   PR '1' was enqueued
         And   PR '1' was marked 'good'
@@ -98,7 +98,7 @@ Feature: Successful flow
         When Flow starts
         Then Branch 'target' does not match branch 'queue' yet
 
-        When  PR '1' is merged
+        When Stage is shaken
         Then Push was called '2' times
         #    , for pr head and for target branch
         And  Branch 'target' matches branch 'queue' now
@@ -158,7 +158,7 @@ Feature: Successful flow
         And   - it is on top of PR '1'
 
 
-    Scenario: Merge first PR in queue
+    Scenario: Good first PR in queue gets merged, undecide second stays
         Given PR '1' exists
         And   PR '2' exists
         And   PR '1' was enqueued
@@ -170,7 +170,7 @@ Feature: Successful flow
         Given PR '2':
         Then  - its marker 'rebase' does not match branch 'target' yet
 
-        When PR '1' is merged
+        When Stage is shaken
         Then Push was called '2' time
         But  Branch 'target' does not match branch 'queue' still
         And  Markers state is:
@@ -193,29 +193,96 @@ Feature: Successful flow
         And   - its marker 'merge' matches branch 'queue' still
 
 
-    Scenario: Merge second PR in queue
+    Scenario: Good second PR in queue is ignored when first is undecided
+        Given PR '1' exists
+        And   PR '2' exists
+        And   PR '1' was enqueued
+        And   PR '2' was enqueued
+        And   PR '2' was marked 'good'
+
+        When Flow starts
+        Then Branch 'target' does not match branch 'queue'
+        And  For PR '2':
+        And  - its marker 'rebase' does not match branch 'target' yet
+
+        When Stage is shaken
+        Then Push was called '0' times
+        And  Branch 'target' does not match branch 'queue' still
+        And  Markers state is:
+            | PR | MARKER | EXISTS |
+            | 1  | head   | yes    |
+            | 1  | rebase | yes    |
+            | 1  | merge  | yes    |
+            | 1  | bad    | no     |
+            | 1  | good   | no     |
+            | 1  | source | yes    |
+            | 2  | head   | yes    |
+            | 2  | rebase | yes    |
+            | 2  | merge  | yes    |
+            | 2  | bad    | no     |
+            | 2  | good   | yes    |
+            | 2  | source | yes    |
+
+        And For PR '2':
+        And - it is on top of PR '1' still
+        And - its marker 'merge' matches branch 'queue' still
+
+
+    Scenario: Both good PRs in queue get merged
         Given PR '1' exists
         And   PR '2' exists
         And   PR '1' was enqueued
         And   PR '2' was enqueued
         And   PR '1' was marked 'good'
-        And   PR '1' was merged
         And   PR '2' was marked 'good'
 
         When Flow starts
         Then  Branch 'target' does not match branch 'queue' yet
-        Given PR '2':
-        Then  - its marker 'rebase' matches branch 'target'
-        And   - its marker 'merge' matches branch 'queue'
+        And  For PR '1':
+        And  - its marker 'rebase' matches branch 'target'
+        And  For PR '2':
+        And  - its marker 'merge' matches branch 'queue'
+        And  - it is on top of PR '1'
 
-        When PR '2' is merged
-        Then Push was called '2' times
+        When Stage is shaken
+        Then Push was called '4' times
+        # first 2x for #1, then 2x more for #2
         And  Branch 'target' matches branch 'queue' now
         And  Markers state is:
             | PR | MARKER | EXISTS |
+            | 1  | head   | no     |
+            | 1  | rebase | no     |
+            | 1  | merge  | no     |
+            | 1  | bad    | no     |
+            | 1  | good   | no     |
+            | 1  | source | no     |
             | 2  | head   | no     |
             | 2  | rebase | no     |
             | 2  | merge  | no     |
             | 2  | bad    | no     |
             | 2  | good   | no     |
             | 2  | source | no     |
+
+
+    Scenario: Shake does nothing without PRs marked good
+        Given PR '1' exists
+        And   PR '2' exists
+        And   PR '1' was enqueued
+        And   PR '2' was enqueued
+
+        When Flow starts
+        Then Branch 'target' does not match branch 'queue' yet
+        And  For PR '2':
+        And  - it is on top of PR '1'
+        And  - its marker 'merge' matches branch 'queue'
+        And  For PR '1':
+        And  - its marker 'rebase' matches branch 'target'
+
+        When Stage is shaken
+        Then Push was called '0' times
+        And  Branch 'target' does not match branch 'queue' still
+        And  For PR '2':
+        And  - it is on top of PR '1' still
+        And  - its marker 'merge' matches branch 'queue'
+        And  For PR '1':
+        And  - its marker 'rebase' matches branch 'target' still
