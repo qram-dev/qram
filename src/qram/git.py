@@ -14,12 +14,10 @@ logger = getLogger(__name__)
 Hash = NewType('Hash', str)
 
 @contextmanager
-def switched_branch(branch: str, source: str='HEAD', anew: bool=False) -> Generator[None, None, None]:
+def switched_branch(branch: str, source: str='HEAD',
+                    anew: bool=False) -> Generator[None, None, None]:
     if anew:
-        try:
-            check_call(['branch', '-D', branch])
-        except:
-            pass
+        call(['branch', '-D', branch])
 
     current = current_branch()
     check_call(['checkout', *(['-B', branch, source] if anew else [branch])])

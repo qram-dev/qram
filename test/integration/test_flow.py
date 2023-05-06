@@ -83,7 +83,8 @@ def _(context: Context, mocked_git_push: MagicMock) -> None:
     mocked_git_push.call_count = 0
 
 
-@then(parsers.parse("Markers state is:\n{markers:T}", extra_types={'T': datatable(int, str, str2bool)}))
+@then(parsers.parse("Markers state is:\n{markers:T}",
+                    extra_types={'T': datatable(int, str, str2bool)}))
 def _(context: Context, markers: DataTable[int, str, bool]) -> None:
     for pr, marker, state in markers:
         marker = translate_alias(marker, context.branches, context.pr[pr])
@@ -163,7 +164,8 @@ def _(context: Context, num: int) -> None:
 ### utils
 
 
-def compare_aliases(context: Context, pr: Optional[PrInfo], first: str, state: str, second: str) -> None:
+def compare_aliases(context: Context, pr: Optional[PrInfo],
+                    first: str, state: str, second: str) -> None:
     what_is = calculate_hash(first, context.branches, pr)
     should_be = calculate_hash(second, context.branches, pr)
     if state == 'matches':

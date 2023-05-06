@@ -17,9 +17,13 @@
         'pytest-bdd',
         'pytest-cov',
         'pytest-mock',
+        'ruff',
         'types-requests',
         'types-PyYAML',
     ]
 
 [tool.mypy]
     strict = true
+
+[tool.ruff]
+    line-length = 100

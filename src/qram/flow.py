@@ -10,7 +10,7 @@ from qram import (
     extract_pr_from_branch_list,
 )
 from qram.config import Config
-from qram.formatter import BranchFormatter, PrFormatter
+from qram.formatter import BranchFormatter
 from qram.github import Github
 
 logger = getLogger(__name__)
@@ -24,7 +24,8 @@ def _merge(pr_num: int, gh: Github, config: Config) -> None:
     # sanity checks
     logger.info('checking branch preconditions')
     if not git.branch_exists(branches_pr.merge):
-        raise RuntimeError(f'Cannot merge PR-{pr_num}: its branch {pr.branch_head} has not been prepared yet')
+        raise RuntimeError(f'Cannot merge PR-{pr_num}: its branch {pr.branch_head}'
+                           ' has not been prepared yet')
     if not git.branch_exists(branches_pr.good):
         raise RuntimeError(f'Cannot merge PR-{pr_num}: it is not marked as good')
     if git.branch_exists(branches_pr.bad):
@@ -153,7 +154,8 @@ def shake_stage(gh: Github, config: Config) -> None:
     logger.info('shake completed, nothing left')
 
 
-def _rebase_queue_onto(target: str, remaining: Iterable[CommitAndBranches], gh: Github, config: Config) -> None:
+def _rebase_queue_onto(target: str, remaining: Iterable[CommitAndBranches],
+                       gh: Github, config: Config) -> None:
     logger.info('queue rebase started')
     branches_global = BranchFormatter(config)
     git.check_call(['branch', '-f', branches_global.queue, target])

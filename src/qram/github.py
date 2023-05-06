@@ -61,7 +61,7 @@ class Github:
         head = j.get('head', dict()).get('ref')
         if not head:
             raise RuntimeError('no head')
-        logging.debug(f'pr:\n'+pformat(j))
+        logging.debug('pr:\n' + pformat(j))
         return Pr(
             number=pr,
             title=j['title'],
