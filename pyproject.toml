@@ -17,4 +17,9 @@
         'pytest-bdd',
         'pytest-cov',
         'pytest-mock',
+        'types-requests',
+        'types-PyYAML',
     ]
+
+[tool.mypy]
+    strict = true

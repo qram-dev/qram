@@ -1,8 +1,9 @@
 
 import logging
 
+from dataclasses import dataclass
 from pathlib import Path
-from typing import List, NamedTuple
+from typing import cast
 
 import yaml
 
@@ -22,30 +23,53 @@ import yaml
 
 logger = logging.getLogger(__name__)
 
+@dataclass
 class Config:
     target_branch: str
     branch_folder: str
     merge_template: '_CfgMergeTemplate'
 
-    def __init__(self, **yy) -> None:
+    def __init__(self, **yy: str|dict[str, str|dict[str, str]]) -> None:
         mt = yy.get('merge-template', _default_merge_template)
+        if type(mt) is not dict:
+            raise TypeError('`.merge-template` config element should be a dict')
+
         au = mt.get('author', dict())
-        a = _CfgAuthor(
-            name=au.get('name', _default_merge_template['author']['name']),
-            email=au.get('email', _default_merge_template['author']['email']),
-        )
+        if type(au) is not dict:
+            raise TypeError('`.merge-template.author` config element should be a dict')
+        au_default = cast(dict[str, str], _default_merge_template['author'])
+
+        name = au.get('name', au_default['name'])
+        if type(name) is not str:
+            raise TypeError('`.merge-template.author.name` config element should be a string')
+        email = au.get('email', au_default['email'])
+        if type(email) is not str:
+            raise TypeError('`.merge-template.author.email` config element should be a string')
+
+        jinja = mt.get('jinja', _default_merge_template['jinja'])
+        if type(jinja) is not str:
+            raise TypeError('`.merge-template.jinja` config element should be a string')
+
         self.merge_template = _CfgMergeTemplate(
-            author=a,
-            jinja=mt.get('jinja', _default_merge_template['jinja']),
+            author=_CfgAuthor(name=name, email=email),
+            jinja=jinja,
         )
-        self.branch_folder = yy.get('branch-folder', 'mq').strip('/')
-        self.target_branch = yy.get('target-branch', 'main').strip('/')
+
+        folder = yy.get('branch-folder', 'mq')
+        if type(folder) is not str:
+            raise TypeError('`.branch-folder` config element should be a string')
+        self.branch_folder = folder.strip('/')
+
+        target = yy.get('target-branch', 'main')
+        if type(target) is not str:
+            raise TypeError('`.target-branch` config element should be a string')
+        self.target_branch = target
 
     @staticmethod
     def read_from_repo() -> 'Config':
         config_file = Path('qram.yml').absolute()
         if not config_file.exists():
-            yy = dict()
+            yy: dict[str, str] = dict()
         else:
             with open(config_file) as f:
                 yy = yaml.safe_load(f)
@@ -53,11 +77,13 @@ class Config:
                     raise RuntimeError('config file is not a dictionary')
         return Config(**yy)
 
-class _CfgMergeTemplate(NamedTuple):
+@dataclass
+class _CfgMergeTemplate:
     author: '_CfgAuthor'
     jinja: str
 
-class _CfgAuthor(NamedTuple):
+@dataclass
+class _CfgAuthor:
     name: str
     email: str
 

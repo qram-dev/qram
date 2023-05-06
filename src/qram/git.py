@@ -6,7 +6,7 @@ from subprocess import (
     check_call as _check_call,
     check_output as _check_output
 )
-from typing import Any, Generator, Iterable, List, NewType, Tuple
+from typing import Any, Generator, Iterable, List, NewType, Tuple, cast
 
 
 logger = getLogger(__name__)
@@ -81,7 +81,7 @@ def check_call(cmd: List[str], *a: Any, **kw: Any) -> None:
 def check_output(cmd: List[str], *a: Any, **kw: Any) -> str:
     cmd = ['git'] + cmd
     logger.info(f'CMD: {" ".join(cmd)}' + (f'| {kw}' if kw else ''))
-    return _check_output(cmd, *a, **kw).decode()
+    return cast(bytes, _check_output(cmd, *a, **kw)).decode()
 
 
 def extract_branches_from_line(line: str, remote_list: List[str]=['origin']) -> List[str]:
