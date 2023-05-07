@@ -1,13 +1,14 @@
 import logging
 from pathlib import Path
 from types import SimpleNamespace
-from typing import Optional
+from typing import Generator, Optional
 from unittest.mock import MagicMock
 
 import pytest
 from pytest_mock import MockerFixture
 from pytest_bdd import scenarios, given, when, then, parsers
 
+import qram.config
 from qram import flow, git
 from qram.config import Config
 from qram.formatter import BranchFormatter
@@ -49,21 +50,19 @@ def mocked_git_push(mocker: MockerFixture) -> MagicMock:
 
 
 @pytest.fixture()
-def context(repo_tar: Path, caplog: pytest.LogCaptureFixture) -> Context:
+def context(repo_tar: Path, caplog: pytest.LogCaptureFixture) -> Generator[Context, None, None]:
     caplog.set_level(logging.INFO)
     caplog.handler.setFormatter(logging.Formatter(
         '{levelname:5} : {name:10} : {message}', style='{',
     ))
-    cd = chdir(repo_tar)
-    cd.__enter__()
-    cfg = Config()
-    return Context(
-        config = cfg,
-        branches = BranchFormatter(cfg),
-        gh = GithubMock(),
-        cd = cd,
-        pr = dict(),
-    )
+    with chdir(repo_tar):
+        cfg = qram.config._defaults
+        yield Context(
+            config = cfg,
+            branches = BranchFormatter(cfg),
+            gh = GithubMock(),
+            pr = dict(),
+        )
 
 
 ### bdd

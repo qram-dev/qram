@@ -45,7 +45,7 @@ def collect_staging(staging_branch: str, target_branch: str) -> Iterable[CommitA
 
 
 def extract_pr_from_merge(branch: str, config: Config) -> int:
-    prefix = config.branch_folder
+    prefix = config.branching.branch_folder
     postfix = PrFormatter.POSTFIX_MERGE
     REGEX = re.compile(f'{prefix}/pr(\\d+)/({postfix})')
     m = REGEX.search(branch)
