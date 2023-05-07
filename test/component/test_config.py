@@ -31,6 +31,8 @@ def test_empty() -> None:
 
 def test_unsupported_options() -> None:
     write_config('''
+        app:
+            provider: github
         omg: 0
     ''')
     with pytest.raises(SchemaError) as e:
@@ -38,6 +40,8 @@ def test_unsupported_options() -> None:
     e.match(r".*Wrong key 'omg'")
 
     write_config('''
+        app:
+            provider: github
         merge-template:
             omg: 0
     ''')
@@ -45,19 +49,43 @@ def test_unsupported_options() -> None:
         Config.read_from_repo()
     e.match(r".*Wrong key 'omg'")
 
+    write_config('''
+        app:
+            provider: github
+            github:
+                omg: 0
+    ''')
+    with pytest.raises(SchemaError) as e:
+        Config.read_from_repo()
+    e.match(r".*Missing keys.*app_id.*installation_id.*")
+
 
 def test_values() -> None:
     write_config('''
+        app:
+            provider: github
+            github:
+                app_id: 1
+                installation_id: 2
         branching:
             target-branch: a
             branch-folder: b/
     ''')
     c = Config.read_from_repo()
+    assert c.app.provider == 'github'
+    assert c.app.github
+    assert c.app.github.app_id == 1
+    assert c.app.github.installation_id == 2
     assert c.branching.target_branch == 'a'
     assert c.branching.branch_folder == 'b'
     assert c.merge_template.author.email == 'qram@no.email'
 
     write_config('''
+        app:
+            provider: github
+            github:
+                app_id: 1
+                installation_id: 2
         merge-template:
             jinja: x
             author:

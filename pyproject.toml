@@ -3,9 +3,12 @@
     version = '0.0'
     dependencies = [
         'jinja2',
+        'meiga',
+        'pyjwt',
         'pyyaml',
         'requests',
         'schema',
+        'tornado',
     ]
 
 [project.scripts]

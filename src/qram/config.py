@@ -3,15 +3,23 @@ import logging
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional as TOptional
 
-from schema import Schema, Optional
+from schema import Schema, Optional, Or, Literal
 import yaml
 
 
 logger = logging.getLogger(__name__)
 
 schema = Schema({
+    'app': {
+        Optional('port'): int,
+        Optional('hmac'): str,
+        'provider': Or(
+            Literal('github'),
+        ),
+        Optional('github'): {object: object},
+    },
     Optional('branching'): {
         Optional('target-branch'): str,
         Optional('branch-folder'): str,
@@ -25,8 +33,14 @@ schema = Schema({
     }
 })
 
+schema_github = Schema({
+    'app_id': int,
+    'installation_id': int,
+})
+
 @dataclass
 class Config:
+    app: '_CfgApp'
     branching: '_CfgBranching'
     merge_template: '_CfgMergeTemplate'
 
@@ -43,7 +57,20 @@ class Config:
             raise TypeError(f'{config_file} should contain a dictionary')
         schema.validate(yy)
 
+        app = yy.get('app', dict())
+        provider = app.get('provider')
+        if provider == 'github':
+            x = app.get('github')
+            if type(x) is not dict:
+                raise TypeError('app.github should be a dictionary')
+            schema_github.validate(x)
         return Config(
+            app=_CfgApp(
+                port=app.get('port', _defaults.app.port),
+                hmac=app.get('hmac', _defaults.app.hmac),
+                provider=provider,
+                github=_CfgGithub(**(app.get('github'))) if provider == 'github' else None,
+            ),
             branching=_CfgBranching(
                 target_branch=yy.get('branching', dict()) \
                     .get('target-branch', _defaults.branching.target_branch),
@@ -77,8 +104,27 @@ class _CfgBranching:
     target_branch: str
     branch_folder: str
 
+@dataclass
+class _CfgApp:
+    port: int
+    hmac: str
+    provider: str
+    github: TOptional['_CfgGithub']
+
+@dataclass
+class _CfgGithub:
+    app_id: int
+    installation_id: int
+
+
 
 _defaults = Config(
+    app=_CfgApp(
+        port=8888,
+        hmac='',
+        provider='?',
+        github=None,
+    ),
     branching=_CfgBranching(
         target_branch='main',
         branch_folder='mq',
