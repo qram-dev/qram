@@ -9,8 +9,8 @@ class BranchFormatter:
 
     def __init__(self, config: Config) -> None:
         self._config = config
-        self.queue = f'{self._config.branch_folder}/queue'
-        self.target = config.target_branch
+        self.queue = f'{self._config.branching.branch_folder}/queue'
+        self.target = config.branching.target_branch
 
     @cache
     def pr(self, pr: int) -> 'PrFormatter':
@@ -30,8 +30,8 @@ class PrFormatter:
 
     def __init__(self, pr: int, config: Config) -> None:
         self._config = config
-        self.rebase = f'{config.branch_folder}/pr{pr}/{PrFormatter.POSTFIX_REBASe}'
-        self.merge = f'{config.branch_folder}/pr{pr}/{PrFormatter.POSTFIX_MERGE}'
-        self.source = f'{config.branch_folder}/pr{pr}/{PrFormatter.POSTFIX_SOURCE}'
-        self.bad = f'{config.branch_folder}/pr{pr}/{PrFormatter.POSTFIX_BAD}'
-        self.good = f'{config.branch_folder}/pr{pr}/{PrFormatter.POSTFIX_GOOD}'
+        self.rebase = f'{config.branching.branch_folder}/pr{pr}/{PrFormatter.POSTFIX_REBASe}'
+        self.merge = f'{config.branching.branch_folder}/pr{pr}/{PrFormatter.POSTFIX_MERGE}'
+        self.source = f'{config.branching.branch_folder}/pr{pr}/{PrFormatter.POSTFIX_SOURCE}'
+        self.bad = f'{config.branching.branch_folder}/pr{pr}/{PrFormatter.POSTFIX_BAD}'
+        self.good = f'{config.branching.branch_folder}/pr{pr}/{PrFormatter.POSTFIX_GOOD}'

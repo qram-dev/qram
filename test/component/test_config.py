@@ -15,17 +15,17 @@ def chtmp(tmp_path: Path) -> Generator[None, None, None]:
 
 
 def test_no_config() -> None:
-    c = Config.read_from_repo()
-    assert c.merge_template.author.email == 'qram@no.email'
+    with pytest.raises(FileNotFoundError):
+        Config.read_from_repo()
 
 
 def test_empty() -> None:
     write_config('')
-    with pytest.raises(SchemaError):
+    with pytest.raises(TypeError):
         Config.read_from_repo()
 
     write_config('---')
-    with pytest.raises(SchemaError):
+    with pytest.raises(TypeError):
         Config.read_from_repo()
 
 
@@ -33,33 +33,28 @@ def test_unsupported_options() -> None:
     write_config('''
         omg: 0
     ''')
-    with pytest.raises(SchemaError):
+    with pytest.raises(SchemaError) as e:
         Config.read_from_repo()
+    e.match(r".*Wrong key 'omg'")
 
     write_config('''
         merge-template:
             omg: 0
     ''')
-    with pytest.raises(SchemaError):
+    with pytest.raises(SchemaError) as e:
         Config.read_from_repo()
-
-    write_config('''
-        merge-template:
-            author:
-                omg: 0
-    ''')
-    with pytest.raises(SchemaError):
-        Config.read_from_repo()
+    e.match(r".*Wrong key 'omg'")
 
 
 def test_values() -> None:
     write_config('''
-        target-branch: a
-        branch-folder: b/
+        branching:
+            target-branch: a
+            branch-folder: b/
     ''')
     c = Config.read_from_repo()
-    assert c.target_branch == 'a'
-    assert c.branch_folder == 'b'
+    assert c.branching.target_branch == 'a'
+    assert c.branching.branch_folder == 'b'
     assert c.merge_template.author.email == 'qram@no.email'
 
     write_config('''
@@ -69,8 +64,8 @@ def test_values() -> None:
                 name: y
     ''')
     c = Config.read_from_repo()
-    assert c.branch_folder == 'mq'
-    assert c.target_branch == 'main'
+    assert c.branching.branch_folder == 'mq'
+    assert c.branching.target_branch == 'main'
     assert c.merge_template.jinja == 'x'
     assert c.merge_template.author.name == 'y'
     assert c.merge_template.author.email == 'qram@no.email'
