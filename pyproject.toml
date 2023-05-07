@@ -5,6 +5,7 @@
         'jinja2',
         'pyyaml',
         'requests',
+        'schema',
     ]
 
 [project.scripts]

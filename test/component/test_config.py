@@ -2,6 +2,7 @@ from pathlib import Path
 from typing import Generator
 
 import pytest
+from schema import SchemaError
 
 from qram.config import Config
 from .. import chdir
@@ -20,11 +21,11 @@ def test_no_config() -> None:
 
 def test_empty() -> None:
     write_config('')
-    with pytest.raises(RuntimeError):
+    with pytest.raises(SchemaError):
         Config.read_from_repo()
 
     write_config('---')
-    with pytest.raises(RuntimeError):
+    with pytest.raises(SchemaError):
         Config.read_from_repo()
 
 
@@ -32,23 +33,23 @@ def test_unsupported_options() -> None:
     write_config('''
         omg: 0
     ''')
-    c = Config.read_from_repo()
-    assert c.merge_template.author.email == 'qram@no.email'
+    with pytest.raises(SchemaError):
+        Config.read_from_repo()
 
     write_config('''
         merge-template:
             omg: 0
     ''')
-    c = Config.read_from_repo()
-    assert c.merge_template.author.email == 'qram@no.email'
+    with pytest.raises(SchemaError):
+        Config.read_from_repo()
 
     write_config('''
         merge-template:
             author:
                 omg: 0
     ''')
-    c = Config.read_from_repo()
-    assert c.merge_template.author.email == 'qram@no.email'
+    with pytest.raises(SchemaError):
+        Config.read_from_repo()
 
 
 def test_values() -> None:
