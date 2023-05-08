@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Optional as TOptional
 
-from schema import Schema, Optional, Or, Literal
+from schema import Schema, Optional, And, Or, Literal, Use
 import yaml
 
 
@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 schema = Schema({
     'app': {
         Optional('port'): int,
-        Optional('hmac'): str,
+        Optional('hmac_file'): And(Use(Path), Path.is_file),
         'provider': Or(
             Literal('github'),
         ),
@@ -34,8 +34,9 @@ schema = Schema({
 })
 
 schema_github = Schema({
-    'app_id': int,
-    'installation_id': int,
+    'app_id': str,
+    'installation_id': str,
+    'pem_file':  And(Use(Path), Path.is_file),
 })
 
 @dataclass
@@ -58,16 +59,21 @@ class Config:
         schema.validate(yy)
 
         app = yy.get('app', dict())
+        hmac_path = app.get('hmac_file')
+        hmac = Path(hmac_path).read_text().strip() if hmac_path else ''
         provider = app.get('provider')
         if provider == 'github':
-            x = app.get('github')
-            if type(x) is not dict:
+            g = app.get('github')
+            if type(g) is not dict:
                 raise TypeError('app.github should be a dictionary')
-            schema_github.validate(x)
+            schema_github.validate(g)
+            g['pem'] = Path(g.pop('pem_file')).read_text().strip()
+
+
         return Config(
             app=_CfgApp(
                 port=app.get('port', _defaults.app.port),
-                hmac=app.get('hmac', _defaults.app.hmac),
+                hmac=hmac or _defaults.app.hmac,
                 provider=provider,
                 github=_CfgGithub(**(app.get('github'))) if provider == 'github' else None,
             ),
@@ -113,8 +119,9 @@ class _CfgApp:
 
 @dataclass
 class _CfgGithub:
-    app_id: int
-    installation_id: int
+    app_id: str
+    installation_id: str
+    pem: str
 
 
 

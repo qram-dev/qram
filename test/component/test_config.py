@@ -37,7 +37,7 @@ def test_unsupported_options() -> None:
     ''')
     with pytest.raises(SchemaError) as e:
         Config.read_from_repo()
-    e.match(r".*Wrong key 'omg'")
+    e.match(r"Wrong key 'omg'")
 
     write_config('''
         app:
@@ -47,7 +47,7 @@ def test_unsupported_options() -> None:
     ''')
     with pytest.raises(SchemaError) as e:
         Config.read_from_repo()
-    e.match(r".*Wrong key 'omg'")
+    e.match(r"Wrong key 'omg'")
 
     write_config('''
         app:
@@ -57,16 +57,40 @@ def test_unsupported_options() -> None:
     ''')
     with pytest.raises(SchemaError) as e:
         Config.read_from_repo()
-    e.match(r".*Missing keys.*app_id.*installation_id.*")
+    e.match(r"Missing keys.*app_id.*installation_id")
 
 
-def test_values() -> None:
+def test_no_secrets() -> None:
+    write_config('''
+        app:
+            provider: github
+            hmac_file: nosuchfile.txt
+    ''')
+    with pytest.raises(SchemaError) as e:
+        Config.read_from_repo()
+    e.match(r"Key 'hmac_file' error")
+
     write_config('''
         app:
             provider: github
             github:
-                app_id: 1
-                installation_id: 2
+                app_id: '1'
+                installation_id: '2'
+                pem_file: nosuchfile.txt
+    ''')
+    with pytest.raises(SchemaError) as e:
+        Config.read_from_repo()
+    e.match(r"Key 'pem_file' error")
+
+
+def test_valid_values() -> None:
+    write_config('''
+        app:
+            provider: github
+            github:
+                app_id: '1'
+                installation_id: '2'
+                pem_file: qram.yml
         branching:
             target-branch: a
             branch-folder: b/
@@ -74,8 +98,9 @@ def test_values() -> None:
     c = Config.read_from_repo()
     assert c.app.provider == 'github'
     assert c.app.github
-    assert c.app.github.app_id == 1
-    assert c.app.github.installation_id == 2
+    assert c.app.github.app_id == '1'
+    assert c.app.github.installation_id == '2'
+    assert c.app.github.pem.startswith('app:')
     assert c.branching.target_branch == 'a'
     assert c.branching.branch_folder == 'b'
     assert c.merge_template.author.email == 'qram@no.email'
@@ -84,8 +109,9 @@ def test_values() -> None:
         app:
             provider: github
             github:
-                app_id: 1
-                installation_id: 2
+                app_id: '1'
+                installation_id: '2'
+                pem_file: qram.yml
         merge-template:
             jinja: x
             author:
