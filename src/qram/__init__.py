@@ -8,7 +8,7 @@ from jinja2 import Environment
 from qram import git
 from qram.config import Config
 from qram.formatter import PrFormatter
-from qram.github import Pr
+from qram.web.provider import Pr
 
 CommitAndBranches = Tuple[git.Hash, List[str]]
 

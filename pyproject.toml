@@ -4,7 +4,7 @@
     dependencies = [
         'jinja2',
         'meiga',
-        'pyjwt',
+        'pyjwt[crypto]',
         'pyyaml',
         'requests',
         'schema',
@@ -20,6 +20,7 @@
         'pytest',
         'pytest-bdd',
         'pytest-cov',
+        'pytest-dotenv',
         'pytest-mock',
         'ruff',
         'types-requests',
