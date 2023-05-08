@@ -20,6 +20,7 @@
         'pytest',
         'pytest-bdd',
         'pytest-cov',
+        'pytest-dotenv',
         'pytest-mock',
         'ruff',
         'types-requests',
