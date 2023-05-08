@@ -11,11 +11,11 @@ from qram import (
 )
 from qram.config import Config
 from qram.formatter import BranchFormatter
-from qram.github import Github
+from qram.web.provider import ProviderRepoApi
 
 logger = getLogger(__name__)
 
-def _merge(pr_num: int, gh: Github, config: Config) -> None:
+def _merge(pr_num: int, gh: ProviderRepoApi, config: Config) -> None:
     logger.info(f'merge started for #{pr_num}')
     pr = gh.get_pr(pr_num)
     branches_global = BranchFormatter(config)
@@ -51,7 +51,7 @@ def _merge(pr_num: int, gh: Github, config: Config) -> None:
     logger.info(f'merge completed for #{pr_num}')
 
 
-def prepare(pr_num: int, gh: Github, config: Config) -> None:
+def prepare(pr_num: int, gh: ProviderRepoApi, config: Config) -> None:
     logger.info(f'stage started for #{pr_num}')
     pr = gh.get_pr(pr_num)
     branches_global = BranchFormatter(config)
@@ -121,7 +121,7 @@ def mark_merge(pr_num: int, config: Config, ci_ok: bool) -> None:
     logger.info(f'mark completed for #{pr_num}')
 
 
-def shake_stage(gh: Github, config: Config) -> None:
+def shake_stage(gh: ProviderRepoApi, config: Config) -> None:
     logger.info('shake started')
     branches_global = BranchFormatter(config)
     stage = list(reversed(list(collect_staging(branches_global.queue, branches_global.target))))
@@ -155,7 +155,7 @@ def shake_stage(gh: Github, config: Config) -> None:
 
 
 def _rebase_queue_onto(target: str, remaining: Iterable[CommitAndBranches],
-                       gh: Github, config: Config) -> None:
+                       gh: ProviderRepoApi, config: Config) -> None:
     logger.info('queue rebase started')
     branches_global = BranchFormatter(config)
     git.check_call(['branch', '-f', branches_global.queue, target])

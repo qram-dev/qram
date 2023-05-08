@@ -12,11 +12,15 @@ import qram.config
 from qram import flow, git
 from qram.config import Config
 from qram.formatter import BranchFormatter
-from qram.github import Pr
+from qram.web.provider.github import Pr
 from test.integration import DataTable, datatable, str2bool
 
 from test.integration.mocks import GithubMock
 from .. import chdir
+
+
+# these are under our protection
+# pyright: reportPrivateUsage=false
 
 
 scenarios('scenarios/successful-flow.gherkin')

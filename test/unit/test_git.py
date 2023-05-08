@@ -11,8 +11,9 @@ class TestBranchExtraction:
     def test_ignore_origin(self) -> None:
         assert extract_branches_from_line('origin/main, origin/foo') == []
         assert extract_branches_from_line('main, origin/main, origin/foo, bar') == ['main', 'bar']
-        assert extract_branches_from_line('main, origin/main, foo/bar, top/kek/cheburek, origin/foo/bar, origin/top/kek/cheburek') \
-            == ['main', 'foo/bar', 'top/kek/cheburek']
+        assert extract_branches_from_line(
+            'main, origin/main, foo/bar, top/kek/cheburek, origin/foo/bar, origin/top/kek/cheburek'
+        ) == ['main', 'foo/bar', 'top/kek/cheburek']
 
     def test_ignore_tags(self) -> None:
         assert extract_branches_from_line('tag: root, tag: v1.2.3') == []
@@ -22,4 +23,6 @@ class TestBranchExtraction:
         assert extract_branches_from_line('HEAD') == []
         assert extract_branches_from_line('HEAD, main') == ['main']
         assert extract_branches_from_line('HEAD -> main, origin/main') == ['main']
-        assert extract_branches_from_line('main, origin/main, tag: v1.2.3, origin/foo, HEAD -> bar') == ['main', 'bar']
+        assert extract_branches_from_line(
+            'main, origin/main, tag: v1.2.3, origin/foo, HEAD -> bar'
+        ) == ['main', 'bar']
