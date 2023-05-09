@@ -30,5 +30,11 @@
 [tool.mypy]
     strict = true
 
+[tool.pytest.ini_options]
+    markers = [
+        'sysA: tests only "standalone" API interaction, without webhook substitution',
+        'sysB: uses API to re-register webhook URL in provider app to local server'
+    ]
+
 [tool.ruff]
     line-length = 100

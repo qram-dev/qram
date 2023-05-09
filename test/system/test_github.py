@@ -1,3 +1,4 @@
+import logging
 import os
 from copy import deepcopy
 from pathlib import Path
@@ -17,6 +18,7 @@ from .. import chdir
 
 ORG = 'qram-dev'
 REPO = 'test-system-deadbeef'
+logger = logging.getLogger(__name__)
 
 
 @pytest.fixture(autouse=True)
@@ -24,7 +26,7 @@ def chtmp(tmp_path: Path) -> Generator[None, None, None]:
     with chdir(tmp_path):
         yield
 
-@pytest.fixture()
+@pytest.fixture(scope='module')
 def config() -> Config:
     c = deepcopy(qram.config._defaults)
     c.app.hmac = os.environ['QRAM_APP_HMAC']
@@ -43,6 +45,7 @@ def api(config: Config) -> Github:
     return api
 
 
+@pytest.mark.sysA
 def test_whoami(api: Github) -> None:
     r = api.get('/installation/repositories')
     assert r.ok
@@ -51,6 +54,7 @@ def test_whoami(api: Github) -> None:
     assert f'{ORG}/{REPO}' in (x['full_name'] for x in j['repositories'])
 
 
+@pytest.mark.sysA
 def test_get_pr(api: Github) -> None:
     pr = api.repo(ORG, REPO).get_pr(1)
     assert pr.number == 1
@@ -58,8 +62,9 @@ def test_get_pr(api: Github) -> None:
     assert pr.title == 'Neverclosing PR for system tests'
 
 
+@pytest.mark.sysA
 def test_app_start_stop(config: Config) -> None:
-    server_thread = ServerThread(False, config, True)
+    server_thread = ServerThread(False, config)
     with server_thread:
         pass
         # wait_for((Path(ORG) / REPO / 'README.md').is_file, 'repo was not checked out')

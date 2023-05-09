@@ -12,25 +12,30 @@ from qram.web.provider import Pr, ProviderApi, ProviderRepoApi
 
 logger = getLogger()
 
-# Github API requires you to provide ID and private key in exchange for an
-# access token that can also expire in an hour. Wrap all that into self-repairing
-# object and hope it does not break.
+# Github API is weird.
+# Some endpoints require you to generate JWT from private PEM and App id.
+# For others you need to first acquire separate access token from API using said JWT.
+# JWT expire in 10 minutes, access tokens expire in 1 hour.
+# Wrap everything into self-repairing objects and hope for the best.
 
 
 def github_api(cfg: Config) -> 'Github':
     '''Factory function providing a working and self-repairing instance of Github API
     '''
-    assert cfg.app.github, 'config have to be setup for github'
-    jwt_payload = {
-        # issued at ...
-        'iat': int(time.time()),
-        # JWT expiration time (10 minutes maximum)
-        'exp': int(time.time()) + 600,
-        # github app identifier
-        'iss': cfg.app.github.app_id
-    }
-    encoded_jwt = jwt.encode(jwt_payload, cfg.app.github.pem, algorithm="RS256")
-    url = f'https://api.github.com/app/installations/{cfg.app.github.installation_id}/access_tokens'
+    github = cfg.app.github
+    assert github is not None, 'config have to be setup for github'
+    def rejwt() -> str:
+        jwt_payload = {
+            # issued at ...
+            'iat': int(time.time()),
+            # JWT expiration time (10 minutes maximum)
+            'exp': int(time.time()) + 600,
+            # github app identifier
+            'iss': github.app_id,
+        }
+        return jwt.encode(jwt_payload, github.pem, algorithm="RS256")
+    encoded_jwt = rejwt()
+    url = f'https://api.github.com/app/installations/{github.installation_id}/access_tokens'
 
     def get_token() -> tuple[str, datetime]:
         logger.debug('requesting new access token from github')
@@ -49,23 +54,34 @@ def github_api(cfg: Config) -> 'Github':
         token = j['token']
         logger.debug(f'token acquired, expires at {expires}')
         return (token, expires)
-    return Github(*get_token(), get_token)
+    return Github(*get_token(), get_token, rejwt)
 
 
 class Github(ProviderApi):
     def __init__(
             self, token: str, expires_at: datetime,
-            reinitialize: Callable[[], tuple[str, datetime]]
+            reinitialize: Callable[[], tuple[str, datetime]],
+            rejwt: Callable[[], str]
         ) -> None:
         self.token = token
         self.expires_at = expires_at
         self.reinitialize = reinitialize
+        self.rejwt = rejwt
 
-    def _request(self, method: str, destination: str, **kwargs: Any) -> Response:
+    def _request(self, method: str, destination: str, use_jwt: bool=False,
+                 **kwargs: Any) -> Response:
         now = datetime.now()
-        if now > self.expires_at:
-            self.token, self.expires_at = self.reinitialize()
-        headers = dict(Authorization=f'Bearer {self.token}')
+        if use_jwt:
+            token = self.rejwt()
+        else:
+            if now > self.expires_at:
+                self.token, self.expires_at = self.reinitialize()
+            token = self.token
+        headers = {
+            'Authorization': f'Bearer {token}',
+            'Accept': 'application/vnd.github+json',
+            'X-GitHub-Api-Version': '2022-11-28',
+        }
         h = cast(dict[str, Any], kwargs.get('headers', dict()))
         if h:
             headers.update(h)
