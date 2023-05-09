@@ -48,7 +48,7 @@ jobs:
         flags: integration
 
     - name: system tests (A)
-      if: github.event.pull_request.head.repo.full_name == github.repository
+      if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
       run: |
         pytest test/system/ -m sysA --cov
       env:
@@ -57,6 +57,7 @@ jobs:
         QRAM_APP_GITHUB_INSTALLATION_ID: ${{ secrets.QRAM_APP_GITHUB_INSTALLATION_ID }}
         QRAM_APP_GITHUB_PEM: ${{ secrets.QRAM_APP_GITHUB_PEM }}
     - name: upload system coverage to Codecov
+      if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
       uses: codecov/codecov-action@v3
       with:
         fail_ci_if_error: true
@@ -69,7 +70,7 @@ jobs:
     # hardcore system tests reconfigure github app webhook to use local ngrok tunnel,
     # so no more than one instance of those should be running at once
     concurrency: app-webhook-reconfiguration
-    if: github.event.pull_request.head.repo.full_name == github.repository
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
 
     steps:
     - uses: actions/checkout@v3
