@@ -5,12 +5,12 @@ from typing import Callable, Iterable, List, Tuple, TypeVar
 
 from jinja2 import Environment
 
-from qram import git
+from qram.git import Git, Hash
 from qram.config import Config
 from qram.formatter import PrFormatter
 from qram.web.provider import Pr
 
-CommitAndBranches = Tuple[git.Hash, List[str]]
+CommitAndBranches = Tuple[Hash, List[str]]
 
 
 def format_merge_message(pr: Pr, config: Config) -> str:
@@ -33,7 +33,8 @@ def format_author(pr: Pr) -> str:
     return f'{username} <{email}>'
 
 
-def collect_staging(staging_branch: str, target_branch: str) -> Iterable[CommitAndBranches]:
+def collect_staging(git: Git, staging_branch: str, target_branch: str) \
+        -> Iterable[CommitAndBranches]:
     log = git.log(staging_branch)
     queue = takewhile(lambda tpl: target_branch not in tpl[1], log)
     for hash, branches in queue:

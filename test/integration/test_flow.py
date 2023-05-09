@@ -5,18 +5,17 @@ from typing import Generator, Optional
 from unittest.mock import MagicMock
 
 import pytest
-from pytest_mock import MockerFixture
 from pytest_bdd import scenarios, given, when, then, parsers
 
 import qram.config
-from qram import flow, git
+from qram import flow
+from qram.git import Git, Hash
 from qram.config import Config
 from qram.formatter import BranchFormatter
 from qram.web.provider.github import Pr
 from test.integration import DataTable, datatable, str2bool
 
 from test.integration.mocks import GithubMock
-from .. import chdir
 
 
 # these are under our protection
@@ -29,12 +28,12 @@ scenarios('scenarios/bad-flow.gherkin')
 
 class PrInfo:
     object: Pr
-    original: git.Hash
+    original: Hash
     'original commit where PR branch was pointing'
-    rebased: git.Hash
+    rebased: Hash
     'new commit where PR branch is pointing after rebase'
 
-    def __init__(self, object: Pr, original: git.Hash) -> None:
+    def __init__(self, object: Pr, original: Hash) -> None:
         self.object = object
         self.original = original
 
@@ -49,31 +48,32 @@ class Context(SimpleNamespace):
 
 
 @pytest.fixture()
-def mocked_git_push(mocker: MockerFixture) -> MagicMock:
-    return mocker.patch('qram.git.push')
-
-
-@pytest.fixture()
-def context(repo_tar: Path, caplog: pytest.LogCaptureFixture) -> Generator[Context, None, None]:
+def context(caplog: pytest.LogCaptureFixture) -> Generator[Context, None, None]:
     caplog.set_level(logging.INFO)
     caplog.handler.setFormatter(logging.Formatter(
         '{levelname:5} : {name:10} : {message}', style='{',
     ))
-    with chdir(repo_tar):
-        cfg = qram.config._defaults
-        yield Context(
-            config = cfg,
-            branches = BranchFormatter(cfg),
-            gh = GithubMock(),
-            pr = dict(),
-        )
+    cfg = qram.config._defaults
+    yield Context(
+        config = cfg,
+        branches = BranchFormatter(cfg),
+        gh = GithubMock(),
+        pr = dict(),
+    )
+
+
+@pytest.fixture()
+def git(repo_tar: Path) -> Git:
+    g = Git(repo_tar)
+    g.push = MagicMock()
+    return g
 
 
 ### bdd
 
 
 @given(parsers.parse("PR '{num:d}' exists"))
-def _(context: Context, num: int) -> None:
+def _(context: Context, git: Git, num: int) -> None:
     p = context.gh.get_pr(num)
     context.pr[num] = PrInfo(
         object = p,
@@ -82,13 +82,14 @@ def _(context: Context, num: int) -> None:
 
 
 @when('Flow starts')
-def _(context: Context, mocked_git_push: MagicMock) -> None:
-    mocked_git_push.call_count = 0
+def _(context: Context, git: Git) -> None:
+    assert isinstance(git.push, MagicMock)
+    git.push.call_count = 0
 
 
 @then(parsers.parse("Markers state is:\n{markers:T}",
                     extra_types={'T': datatable(int, str, str2bool)}))
-def _(context: Context, markers: DataTable[int, str, bool]) -> None:
+def _(context: Context, git: Git, markers: DataTable[int, str, bool]) -> None:
     for pr, marker, state in markers:
         marker = translate_alias(marker, context.branches, context.pr[pr])
         assert git.branch_exists(marker) == state
@@ -104,31 +105,32 @@ def _(context: Context, num: int) -> int:
 
 @when(parsers.parse("PR '{num:d}' is enqueued"))
 @given(parsers.parse("PR '{num:d}' was enqueued"))
-def _(context: Context, mocked_git_push: MagicMock, num: int) -> None:
-    flow.prepare(num, context.gh, context.config)
+def _(context: Context, git: Git, num: int) -> None:
+    flow.prepare(git, num, context.gh, context.config)
     pr = context.pr[num]
     pr.rebased = git.hash_of(pr.object.branch_head)
 
 
 @then(parsers.parse("Push was called '{cnt:d}' time"))
 @then(parsers.parse("Push was called '{cnt:d}' times"))
-def _(cnt: int, mocked_git_push: MagicMock) -> None:
-    assert mocked_git_push.call_count == cnt
-    mocked_git_push.call_count = 0
+def _(git: Git, cnt: int) -> None:
+    assert isinstance(git.push, MagicMock)
+    assert git.push.call_count == cnt
+    git.push.call_count = 0
 
 
 @then(parsers.parse("- its marker '{first}' {state} its {second} commit"))
 @then(parsers.parse("- its marker '{first}' {state} its {second} commit{}"))
 @then(parsers.parse("- its marker '{first}' {state} branch '{second}'"))
 @then(parsers.parse("- its marker '{first}' {state} branch '{second}'{}"))
-def _(context: Context, observed_pr: int, first: str, state: str, second: str) -> None:
+def _(context: Context, git: Git, observed_pr: int, first: str, state: str, second: str) -> None:
     pr = context.pr[observed_pr]
-    compare_aliases(context, pr, first, state, second)
+    compare_aliases(context, git, pr, first, state, second)
 
 
 @then(parsers.parse("- it is on top of PR '{other:d}' {}"))
 @then(parsers.parse("- it is on top of PR '{other:d}'"))
-def _(context: Context, observed_pr: int, other: int) -> None:
+def _(context: Context, git: Git, observed_pr: int, other: int) -> None:
     above = context.branches.pr(observed_pr)
     below = context.branches.pr(other)
     assert git.hash_of(above.rebase) == git.hash_of(below.merge)
@@ -136,41 +138,41 @@ def _(context: Context, observed_pr: int, other: int) -> None:
 
 @then(parsers.parse("Branch '{first}' {state} branch '{second}' {}"))
 @then(parsers.parse("Branch '{first}' {state} branch '{second}'"))
-def _(context: Context, first: str, state: str, second: str) -> None:
-    compare_aliases(context, None, first, state, second)
+def _(context: Context, git: Git, first: str, state: str, second: str) -> None:
+    compare_aliases(context, git, None, first, state, second)
 
 
 @when(parsers.parse("Stage is shaken"))
 @given(parsers.parse("Stage was shaken"))
-def _(context: Context) -> None:
-    flow.shake_stage(context.gh, context.config)
+def _(context: Context, git: Git) -> None:
+    flow.shake_stage(git, context.gh, context.config)
 
 
 @when(parsers.parse("PR '{num:d}' is marked '{state}'"))
 @given(parsers.parse("PR '{num:d}' was marked '{state}'"))
-def _(context: Context, num: int, state: str) -> None:
+def _(context: Context, git: Git, num: int, state: str) -> None:
     if state == 'good':
         ok = True
     elif state == 'bad':
         ok = False
     else:
         raise ValueError(f'Unknown state: `{state}`')
-    flow.mark_merge(num, context.config, ok)
+    flow.mark_merge(git, num, context.config, ok)
 
 
 @then(parsers.parse("PR '{num:d}' cannot be merged yet"))
-def _(context: Context, num: int) -> None:
+def _(context: Context, git: Git, num: int) -> None:
     with pytest.raises(Exception):
-        flow._merge(num, context.gh, context.config)
+        flow._merge(git, num, context.gh, context.config)
 
 
 ### utils
 
 
-def compare_aliases(context: Context, pr: Optional[PrInfo],
+def compare_aliases(context: Context, git: Git, pr: Optional[PrInfo],
                     first: str, state: str, second: str) -> None:
-    what_is = calculate_hash(first, context.branches, pr)
-    should_be = calculate_hash(second, context.branches, pr)
+    what_is = calculate_hash(git, first, context.branches, pr)
+    should_be = calculate_hash(git, second, context.branches, pr)
     if state == 'matches':
         assert what_is == should_be
     elif state == 'does not match':
@@ -198,15 +200,16 @@ def translate_alias(
     if alias_from_datatable in ('rebase', 'source', 'merge', 'bad', 'good'):
         markers = global_branches.pr(pr.object.number)
         marker = markers.__getattribute__(alias_from_datatable)
-        assert type(marker) is str
+        assert isinstance(marker, str)
         return marker
     raise ValueError(f'Unknown reference: {alias_from_datatable}')
 
 
 def calculate_hash(
+        git: Git,
         alias_from_datatable: str,
         global_branches: BranchFormatter,
         pr: Optional[PrInfo]=None
-    ) -> git.Hash:
+    ) -> Hash:
     branch = translate_alias(alias_from_datatable, global_branches, pr)
     return git.hash_of(branch)
