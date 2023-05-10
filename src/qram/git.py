@@ -89,6 +89,12 @@ class Git:
             '--cleanup=whitespace', '-m', message,
         ])
 
+    def branches_at_ref(self, ref: str|Hash) -> List[str]:
+        output = check_output(self.repo, ['branch', '--points-at', ref])
+        split = output.splitlines()
+        # first 2 symbols are either `* ` for current branch or `  ` for the rest
+        return [x[2:] for x in split]
+
 
 def call(repo: Path, cmd: List[str], *a: Any, **kw: Any) -> bool:
     full_cmd = ['git']
