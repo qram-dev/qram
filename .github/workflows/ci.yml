@@ -50,7 +50,13 @@ jobs:
     - name: system tests (A)
       if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
       run: |
-        pytest test/system/ -m sysA --cov
+        pytest \
+          -o log_cli=1 \
+          --log-cli-level=INFO \
+          --log-cli-format='%(levelname)-6s :: %(name)-25s :: %(message)s' \
+          test/system/ \
+          -m sysA \
+          --cov
       env:
         QRAM_APP_HMAC: ${{ secrets.QRAM_APP_HMAC }}
         QRAM_APP_GITHUB_APP_ID: ${{ secrets.QRAM_APP_GITHUB_APP_ID }}
