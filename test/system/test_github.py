@@ -84,11 +84,27 @@ def test_get_pr(api: Github) -> None:
 
 
 @pytest.mark.sysA
-def test_app_start_stop(config: Config) -> None:
+def test_app_start_stop(config: Config, caplog: pytest.LogCaptureFixture) -> None:
     server_thread = ServerThread(config, debug=False)
     with server_thread:
-        pass
-        # wait_for((Path(ORG) / REPO / 'README.md').is_file, 'repo was not checked out')
+        wait_for(
+            log_contains(caplog, 'Pong!'),
+            'PingEvent never got processed',
+        )
+
+
+@pytest.mark.skip
+@pytest.mark.sysA
+def test_app_initialize_repos(config: Config, caplog: pytest.LogCaptureFixture) -> None:
+    # FIXME: no checkouts done during initialization yet. This test here is just so I won't forget
+    # to actually test it
+    server_thread = ServerThread(config, debug=False, initialize_repos=True)
+    with server_thread:
+        wait_for(
+            log_contains(caplog, 'Initialization done'),
+            'repos never got initialized',
+        )
+        assert (Path(ORG) / REPO / 'README.md').is_file(), 'repo was not checked out'
 
 
 @pytest.mark.sysB
@@ -98,11 +114,12 @@ def test_comment_reaction(config: Config, api: Github, caplog: pytest.LogCapture
     caplog.set_level(logging.INFO, logger='qram.web.server')
     server_thread = ServerThread(config, debug=True)
     with server_thread:
-        message = f"beep-boop, i'm a bot, time is {datetime.now()}"  # noqa: DTZ005
+        message = f"!qram\nbeep-boop, i'm a bot, time is {datetime.now()}"  # noqa: DTZ005
         logger.info(f'⬜  posting a new comment to PR #1 in {ORG}/{REPO}...')
         payload = dict(body=message)
         r = api.post(f'/repos/{ORG}/{REPO}/issues/1/comments', json=payload)
         if not r.ok:
+            logger.error(f'🟥  post failed: {r.content.decode()}')
             raise RuntimeError(r.content.decode())
         new_comment_id = r.json()['id']
         logger.info('🟩  comment posted')
@@ -118,11 +135,13 @@ def test_comment_reaction(config: Config, api: Github, caplog: pytest.LogCapture
             logger.info('⬜  check if worker processed it...')
             wait_for(
                 log_contains(caplog,
-                    'ma, look, event! PrCommentEvent'),
+                    'It is meant for us'),
                 'PrCommentEvent never got processed',
             )
             logger.info('🟩  processed')
-
+        except Exception as e:
+            logger.error(f'🟥  exception: {e}')  # noqa: TRY400
+            raise
         finally:
             logger.info(f'⬜  deleting freshly posted comment {new_comment_id}...')
             payload = dict(
@@ -130,6 +149,7 @@ def test_comment_reaction(config: Config, api: Github, caplog: pytest.LogCapture
             )
             r = api._request('DELETE', f'/repos/{ORG}/{REPO}/issues/comments/{new_comment_id}')
             if not r.ok:
+                logger.error(f'🟥  delete failed: {r.content.decode()}')
                 raise RuntimeError(r.content.decode())
             logger.info('🟩  comment deleted')
 

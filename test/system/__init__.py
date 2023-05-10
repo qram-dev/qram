@@ -18,16 +18,19 @@ class ServerThread(Thread):
     exception: Exception | None
     timeout: float | None
 
-    def __init__(self, config: Config, *, debug: bool, timeout: float=10):
+    def __init__(self, config: Config, *, debug: bool, initialize_repos: bool=False,
+                 timeout: float=10):
         super().__init__(name=f'Qram-{config.app.provider}:{config.app.port}')
         self.debug = debug
         self.config = config
         self.timeout = timeout
+        self.initialize_repos = initialize_repos
         self.exception = None
 
     def run(self) -> None:
         try:
-            asyncio.run(make_server(self.config, debug=self.debug, provide_stop=True))
+            asyncio.run(make_server(self.config, debug=self.debug, provide_stop=True,
+                                    initialize_repos=self.initialize_repos))
         except Exception as e:
             self.exception = e
 
@@ -41,7 +44,8 @@ class ServerThread(Thread):
         wait_for(server_started, f'qram did not start on port {self.config.app.port}')
         logger.info('▶▶▶ started')
 
-    def __exit__(self, exc_type: Any, exc_value: Any, traceback: Any) -> None:
+    def __exit__(self, exc_type: Any, exc_value: Any, traceback: Any) -> None:  # noqa: ANN401
+        # TODO: handle exceptions somehow?
         logger.info('◀◀◀ stopping webhook server ...')
         r = post(f'http://localhost:{self.config.app.port}/stop')
         assert r.ok
@@ -61,7 +65,8 @@ def wait_for(check: Callable[[], bool], errmsg: str, attempts: int=5) -> None:
         except Exception as e:
             exception = e
         time.sleep(i)
+    errmsg = f'{errmsg} after {attempts} checks'
+    logger.error(f'🟥  {errmsg}')
     if exception:
-        raise TimeoutError(f'{errmsg} after {attempts} checks') from exception
-    else:
-        raise TimeoutError(f'{errmsg} after {attempts} checks')
+        raise TimeoutError(errmsg) from exception
+    raise TimeoutError(errmsg)
