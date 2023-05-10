@@ -1,13 +1,13 @@
-#!/usr/bin/env python3
 import logging
 
 from meiga import Failure, Success
-from tornado.queues import Queue
-from tornado.web import Application, RequestHandler
 from tornado.ioloop import IOLoop
+from tornado.web import Application, RequestHandler
 
-from . import ExpectedError, GithubWebhook, ProviderEvent, StopEvent, Webhook
+from qram import web
 from qram.config import Config
+from qram.web import EventHandler, EventQueue, ExpectedError, GithubHandler, GithubWebhook, Webhook
+from qram.web.provider.github import github_api
 
 
 logger = logging.getLogger(__name__)
@@ -17,16 +17,16 @@ logger = logging.getLogger(__name__)
 #   pyright: reportIncompatibleMethodOverride=false
 
 
-
 class MainHandler(RequestHandler):
     def get(self) -> None:
         self.write('qram')
+
 
 class WebhookHandler(RequestHandler):
     webhook: Webhook
     debug: bool
 
-    def initialize(self, token: str|None, webhook: Webhook, debug: bool) -> None:
+    def initialize(self, token: str|None, webhook: Webhook, debug: bool) -> None: # noqa: FBT001
         self.token = token.encode('utf-8') if token else None
         self.webhook = webhook
         self.debug = debug
@@ -64,29 +64,36 @@ class WebhookHandler(RequestHandler):
             case _ as e:
                 raise RuntimeError(f'unexpected storage result: {e}')
 
+
 class StopHandler(RequestHandler):
-    def initialize(self, queue: Queue[ProviderEvent]) -> None:
+    def initialize(self, queue: EventQueue) -> None:
         self.queue = queue
 
     def post(self) -> None:
-        self.queue.put_nowait(StopEvent())
+        self.queue.put_nowait(web.StopEvent())
         self.write('Goodbye.')
 
-async def make_server(debug: bool, config: Config, provide_stop: bool) -> None:
+
+async def make_server(config: Config, *, debug: bool, provide_stop: bool,
+                      initialize_repos: bool) -> None:
     if config.app.hmac:
         logger.info('HMAC secret provided, incoming requests will be verified')
-    queue = Queue[ProviderEvent]()
+    queue = EventQueue()
+    await queue.put(web.PingEvent())
+    if initialize_repos:
+        await queue.put(web.InitializeEvent())
 
     match config.app.provider:
         case 'github':
             webhook = GithubWebhook(queue)
+            handler = GithubHandler(github_api(config))
         case _:
             raise RuntimeError(f'unexpected provider: {config.app.provider}')
 
     app = Application([
         ('/', MainHandler),
         ('/webhook', WebhookHandler, dict(
-            token=config.app.hmac, webhook=webhook, debug=debug
+            token=config.app.hmac, webhook=webhook, debug=debug,
         )),
         *([('/stop', StopHandler, dict(queue=queue))] if provide_stop else []),
     ], debug=debug)
@@ -95,11 +102,38 @@ async def make_server(debug: bool, config: Config, provide_stop: bool) -> None:
     logger.info(f'serving on port {config.app.port}')
 
     async for event in queue:
-        await IOLoop.current().run_in_executor(None, process, event)
-        if type(event) is StopEvent:
+        await IOLoop.current().run_in_executor(None, process, event, handler)
+        if isinstance(event, web.StopEvent):
             break
+        logger.debug('next event...')
     logger.info('done with the que')
 
 
-def process(event: ProviderEvent) -> None:
-    logger.info(f'ma, look, event! {event}')
+def process(event: web.QramEvent, handler: EventHandler) -> None:
+    logger.debug(f'processing event {event}')
+    match event:
+        case web.InitializeEvent():
+            logger.info('Initializing available repos')
+            match handler.handle_initialization():
+                case Success(True):
+                    logger.info('Initialization done')
+                case _ as e:
+                    logger.critical(f'❗ Initialization failed: {e}')
+                    return
+        case web.StopEvent():
+            logger.info('Requested to stop; Qram will now exit')
+            handler.handle_stop()
+        case web.PingEvent():
+            logger.info('Pong!')
+        case web.PrCommentEvent() as e:
+            logger.info(f'A comment was posted on PR #{e.pr}')
+            if event.message.strip().startswith('!qram'):
+                logger.info('It is meant for us!')
+                handler.handle_pr_comment(e)
+            else:
+                logger.info('It is just some comment')
+        case web.CheckCompletedEvent() as e:
+            logger.info(f'A check completed on {e.commit}!')
+            handler.handle_check_complete(e)
+        case _ as e:
+            logger.warning(f'⚠️ Unexpected event type {e}\nIt is most likely a bug in Qram')

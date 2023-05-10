@@ -1,13 +1,15 @@
 # mypy: ignore-errors
 # mypy has not yet implemented support for TypeVarTuple
-from typing import TypeVarTuple, Callable, Generator, Any, Tuple, Iterable
+from collections.abc import Callable, Generator, Iterable
+from typing import Any, TypeVarTuple
+
 
 Ts = TypeVarTuple('Ts')
-DataTable = Generator[Tuple[*Ts], None, None]
+DataTable = Generator[tuple[*Ts], None, None]
 
 def datatable(*parsers: Callable[[str], Any]) -> Callable[[str], Any]:
-    def parse_row(row: Iterable[str]) -> Tuple[Any]:
-        return tuple(parser(cell) for parser, cell in zip(parsers, row))
+    def parse_row(row: Iterable[str]) -> tuple[Any]:
+        return tuple(parser(cell) for parser, cell in zip(parsers, row, strict=True))
     def parse_table(text: str) -> Generator[Any, None, None]:
         table = (_line_to_row(line) for line in _text_to_lines(text))
         # skip header row
@@ -18,7 +20,7 @@ def datatable(*parsers: Callable[[str], Any]) -> Callable[[str], Any]:
 
 def _text_to_lines(text: str) -> Generator[str, None, None]:
     for line in text.splitlines():
-        line = line.strip()
+        line = line.strip()  # noqa: PLW2901
         if not line or line.startswith('#'):
             continue
         yield line

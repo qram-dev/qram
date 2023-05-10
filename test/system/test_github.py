@@ -1,21 +1,23 @@
-from datetime import datetime
 import logging
 import os
+from collections.abc import Callable, Generator
 from copy import deepcopy
+from datetime import datetime
 from pathlib import Path
-from typing import Callable, Generator
 
 import pytest
 
 import qram.config
 from qram.config import Config
 from qram.web.provider.github import Github, github_api
+
+from test import chdir
 from test.system import ServerThread, wait_for
-from .. import chdir
 
 
 # these are under our protection
 # pyright: reportPrivateUsage=false
+# ruff: noqa: SLF001, ARG001
 
 ORG = 'qram-dev'
 REPO = 'test-system-deadbeef'
@@ -26,6 +28,7 @@ logger = logging.getLogger(__name__)
 def chtmp(tmp_path: Path) -> Generator[None, None, None]:
     with chdir(tmp_path):
         yield
+
 
 @pytest.fixture(scope='module')
 def config() -> Config:
@@ -42,11 +45,11 @@ def config() -> Config:
     )
     return c
 
+
 @pytest.fixture(scope='module')
 def api(config: Config) -> Github:
-    api = github_api(config)
+    return github_api(config)
 
-    return api
 
 @pytest.fixture(scope='module')
 def webhook_reconfigured(api: Github, config: Config) -> None:
@@ -81,11 +84,27 @@ def test_get_pr(api: Github) -> None:
 
 
 @pytest.mark.sysA
-def test_app_start_stop(config: Config) -> None:
-    server_thread = ServerThread(False, config)
+def test_app_start_stop(config: Config, caplog: pytest.LogCaptureFixture) -> None:
+    server_thread = ServerThread(config, debug=False)
     with server_thread:
-        pass
-        # wait_for((Path(ORG) / REPO / 'README.md').is_file, 'repo was not checked out')
+        wait_for(
+            log_contains(caplog, 'Pong!'),
+            'PingEvent never got processed',
+        )
+
+
+@pytest.mark.skip
+@pytest.mark.sysA
+def test_app_initialize_repos(config: Config, caplog: pytest.LogCaptureFixture) -> None:
+    # FIXME: no checkouts done during initialization yet. This test here is just so I won't forget
+    # to actually test it
+    server_thread = ServerThread(config, debug=False, initialize_repos=True)
+    with server_thread:
+        wait_for(
+            log_contains(caplog, 'Initialization done'),
+            'repos never got initialized',
+        )
+        assert (Path(ORG) / REPO / 'README.md').is_file(), 'repo was not checked out'
 
 
 @pytest.mark.sysB
@@ -93,50 +112,51 @@ def test_comment_reaction(config: Config, api: Github, caplog: pytest.LogCapture
                           webhook_reconfigured: None) -> None:
     caplog.set_level(logging.INFO, logger='qram.web')
     caplog.set_level(logging.INFO, logger='qram.web.server')
-    server_thread = ServerThread(True, config)
+    server_thread = ServerThread(config, debug=True)
     with server_thread:
-        message = f'beep-boop, i\'m a bot, time is {datetime.now()}'
+        message = f"!qram\nbeep-boop, i'm a bot, time is {datetime.now()}"  # noqa: DTZ005
         logger.info(f'⬜  posting a new comment to PR #1 in {ORG}/{REPO}...')
-        payload = dict(
-            body=message
-        )
+        payload = dict(body=message)
         r = api.post(f'/repos/{ORG}/{REPO}/issues/1/comments', json=payload)
         if not r.ok:
+            logger.error(f'🟥  post failed: {r.content.decode()}')
             raise RuntimeError(r.content.decode())
         new_comment_id = r.json()['id']
-
         logger.info('🟩  comment posted')
+
         logger.info('⬜  check if webhook got it...')
         try:
             wait_for(
                 log_contains(caplog, 'this is PR comment'),
-                'webhook never got "comment" event'
+                'webhook never got "comment" event',
             )
             logger.info('🟩  got it')
+
             logger.info('⬜  check if worker processed it...')
             wait_for(
                 log_contains(caplog,
-                    'ma, look, event! PrCommentEvent'),
-                'PrCommentEvent never got processed'
+                    'It is meant for us'),
+                'PrCommentEvent never got processed',
             )
             logger.info('🟩  processed')
+        except Exception as e:
+            logger.error(f'🟥  exception: {e}')  # noqa: TRY400
+            raise
         finally:
             logger.info(f'⬜  deleting freshly posted comment {new_comment_id}...')
             payload = dict(
-                body=message
+                body=message,
             )
             r = api._request('DELETE', f'/repos/{ORG}/{REPO}/issues/comments/{new_comment_id}')
             if not r.ok:
+                logger.error(f'🟥  delete failed: {r.content.decode()}')
                 raise RuntimeError(r.content.decode())
             logger.info('🟩  comment deleted')
 
 
 def log_contains(capture: pytest.LogCaptureFixture, msg: str) -> Callable[[], bool]:
     def contains() -> bool:
-        for record in capture.records:
-            if msg in record.message:
-                return True
-        return False
+        return any(msg in record.message for record in capture.records)
     return contains
 
 logging.basicConfig(level=logging.INFO)
