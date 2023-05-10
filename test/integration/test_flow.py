@@ -157,7 +157,8 @@ def _(context: Context, git: Git, num: int, state: str) -> None:
         ok = False
     else:
         raise ValueError(f'Unknown state: `{state}`')
-    flow.mark_merge(git, num, context.config, ok)
+    merge_hash = calculate_hash(git, 'merge', context.branches, context.pr[num])
+    flow.mark_merge(git, merge_hash, context.config, ok)
 
 
 @then(parsers.parse("PR '{num:d}' cannot be merged yet"))

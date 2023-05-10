@@ -1,7 +1,7 @@
 from logging import getLogger
 from typing import Iterable
 
-from qram.git import Git
+from qram.git import Git, Hash
 from qram import (
     CommitAndBranches,
     collect_staging,
@@ -102,18 +102,18 @@ def prepare(git: Git, pr_num: int, gh: ProviderRepoApi, config: Config) -> None:
     logger.info(f'stage completed for #{pr_num}')
 
 
-def mark_merge(git: Git, pr_num: int, config: Config, ci_ok: bool) -> None:
-    # FIXME: marking from CI/github will be done upon hash!! NOT upon PR number!
+def mark_merge(git: Git, commit: Hash, config: Config, ci_ok: bool) -> None:
+    pr_num = extract_pr_from_branch_list(git.branches_at_ref(commit), config)
     logger.info(f'mark started for #{pr_num}')
-    branches = BranchFormatter(config).pr(pr_num)
+    branches_pr = BranchFormatter(config).pr(pr_num)
     if ci_ok:
-        add = branches.good
-        remove = branches.bad
+        add = branches_pr.good
+        remove = branches_pr.bad
     else:
-        add = branches.bad
-        remove = branches.good
+        add = branches_pr.bad
+        remove = branches_pr.good
     # git.check_call(['branch', '-f', add, branches.merge])
-    git.new_branch(add, branches.merge, force=True)
+    git.new_branch(add, branches_pr.merge, force=True)
     if git.branch_exists(remove):
         git.delete_branch(remove, force=True)
     logger.info(f'mark completed for #{pr_num}')
