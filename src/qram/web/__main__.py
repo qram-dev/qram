@@ -1,11 +1,10 @@
-#!/usr/bin/env python3
 import asyncio
 import logging
 from argparse import ArgumentParser
 from dataclasses import dataclass
 
-from qram.web.server import make_server
 from qram.config import Config
+from qram.web.server import make_server
 
 
 logger = logging.getLogger(__name__)
@@ -25,7 +24,7 @@ def parse_args() -> Args:
 def main(args: Args) -> None:
     logging.basicConfig(level=logging.DEBUG if args.debug else logging.INFO)
     config = Config.read_from_repo()
-    server_coro = make_server(args.debug, config, args.debug)
+    server_coro = make_server(config, debug=args.debug, provide_stop=args.debug)
     asyncio.run(server_coro)
 
 

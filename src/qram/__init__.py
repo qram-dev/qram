@@ -1,31 +1,32 @@
 import re
-
+from collections.abc import Callable, Iterable
 from itertools import takewhile
-from typing import Callable, Iterable, List, Tuple, TypeVar
+from typing import TypeVar
 
 from jinja2 import Environment
 
-from qram.git import Git, Hash
 from qram.config import Config
 from qram.formatter import PrFormatter
+from qram.git import Git, Hash
 from qram.web.provider import Pr
 
-CommitAndBranches = Tuple[Hash, List[str]]
+
+CommitAndBranches = tuple[Hash, list[str]]
 
 
 def format_merge_message(pr: Pr, config: Config) -> str:
-    e = Environment()
+    e = Environment(autoescape=True)
     return e.from_string(
         source=config.merge_template.jinja,
         globals=dict(
             pr=pr,
-            cfg=config
-        )
+            cfg=config,
+        ),
     ).render().strip()
 
 
 def format_author(pr: Pr) -> str:
-    username = pr.author["username"]
+    username = pr.author['username']
     author_id = pr.author['id']
     email = f'{username}@users.noreply.github.com'
     if author_id:
@@ -37,24 +38,24 @@ def collect_staging(git: Git, staging_branch: str, target_branch: str) \
         -> Iterable[CommitAndBranches]:
     log = git.log(staging_branch)
     queue = takewhile(lambda tpl: target_branch not in tpl[1], log)
-    for hash, branches in queue:
+    for commit, branches in queue:
         if any(
             b.endswith(PrFormatter.POSTFIX_MERGE)
             for b in branches
         ):
-            yield hash, branches
+            yield commit, branches
 
 
 def extract_pr_from_merge(branch: str, config: Config) -> int:
     prefix = config.branching.branch_folder
     postfix = PrFormatter.POSTFIX_MERGE
-    REGEX = re.compile(f'{prefix}/pr(\\d+)/({postfix})')
-    m = REGEX.search(branch)
+    regex = re.compile(f'{prefix}/pr(\\d+)/({postfix})')
+    m = regex.search(branch)
     assert m is not None, f'string {branch} does not match regex'
     return int(m.group(1))
 
 
-def extract_pr_from_branch_list(branches: List[str], config: Config) -> int:
+def extract_pr_from_branch_list(branches: list[str], config: Config) -> int:
     for b in branches:
         if b.endswith(PrFormatter.POSTFIX_MERGE):
             return extract_pr_from_merge(b, config)

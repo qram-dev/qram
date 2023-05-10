@@ -1,13 +1,12 @@
+from collections.abc import Generator, Iterable
 from contextlib import contextmanager
 from logging import getLogger
 from pathlib import Path
 from random import choice
-from subprocess import (
-    call as _call,
-    check_call as _check_call,
-    check_output as _check_output
-)
-from typing import Any, Generator, Iterable, List, NewType, Tuple, cast
+from subprocess import call as _call
+from subprocess import check_call as _check_call
+from subprocess import check_output as _check_output
+from typing import Any, NewType, cast
 
 
 logger = getLogger(__name__)
@@ -19,7 +18,7 @@ class Git:
         self.repo = repo_path
 
     @contextmanager
-    def switched_branch(self, branch: str, source: str='HEAD',
+    def switched_branch(self, branch: str, source: str='HEAD', *,
                         anew: bool=False) -> Generator[None, None, None]:
         if anew:
             call(self.repo, ['branch', '-D', branch])
@@ -38,30 +37,26 @@ class Git:
         return Hash(check_output(self.repo, ['rev-parse', ref]).strip())
 
     def commit(self, x: str) -> None:
-        with open(x, 'w') as f:
+        with Path(x).open('w') as f:
             f.write(f'{x}\n')
         check_call(self.repo, ['add', x])
         check_call(self.repo, ['commit', '-m', x])
 
-    def push(self, x: str, force: bool=True) -> None:
+    def push(self, x: str, *, force: bool=True) -> None:
         check_call(self.repo, ['push', '-u', 'origin', x, *(['--force'] if force else [])])
 
     def branch_exists(self, x: str) -> bool:
         return call(self.repo, ['show-ref', '--verify', '--quiet', f'refs/heads/{x}'])
 
-    def log(self, head: str|Hash) -> Iterable[Tuple[Hash, List[str]]]:
-        """
-        For each commit reachable from `head`, get (hash, [branch1, branch2, ...])
-        """
-        SEP = ' - '
-        log = check_output(self.repo, [
-            'log', f'--format=format:%h{SEP}%D', f'{head}'
-        ]).splitlines()
-        splits = (tuple(line.split(SEP)) for line in log)
-        for hash, branches_line in splits:
+    def log(self, head: str|Hash) -> Iterable[tuple[Hash, list[str]]]:
+        '''For each commit reachable from `head`, get (hash, [branch1, branch2, ...])'''
+        sep = ' - '
+        log = check_output(self.repo, ['log', f'--format=format:%h{sep}%D', f'{head}']).splitlines()
+        splits = (tuple(line.split(sep)) for line in log)
+        for commit, branches_line in splits:
             branches = extract_branches_from_line(branches_line)
             if branches:
-                yield Hash(hash), branches
+                yield Hash(commit), branches
 
     def new_branch(self, branch: str, at: str|Hash='HEAD', *, force: bool=False) -> None:
         check_call(self.repo, ['branch', branch, at, *(['--force'] if force else [])])
@@ -89,55 +84,60 @@ class Git:
             '--cleanup=whitespace', '-m', message,
         ])
 
-    def branches_at_ref(self, ref: str|Hash) -> List[str]:
+    def branches_at_ref(self, ref: str|Hash) -> list[str]:
         output = check_output(self.repo, ['branch', '--points-at', ref])
         split = output.splitlines()
         # first 2 symbols are either `* ` for current branch or `  ` for the rest
         return [x[2:] for x in split]
 
 
-def call(repo: Path, cmd: List[str], *a: Any, **kw: Any) -> bool:
+def call(repo: Path, cmd: list[str], **kw: Any) -> bool: # noqa: ANN401
     full_cmd = ['git']
     if repo.absolute() != Path().absolute():
         full_cmd += ['-C', str(repo)]
     full_cmd += cmd
 
-    logger.info(f'CMD: {" ".join(full_cmd)}' + (f'| {kw}' if kw else ''))
-    c = _call(full_cmd, *a, **kw)
+    msg = f'CMD: {" ".join(full_cmd)}' + (f'| {kw}' if kw else '')
+    logger.info(msg)
+    c = _call(full_cmd, **kw)
     logger.info(f'--> {c}')
     return c == 0
 
 
-def check_call(repo: Path, cmd: List[str], *a: Any, **kw: Any) -> None:
+def check_call(repo: Path, cmd: list[str], **kw: Any) -> None: # noqa: ANN401
     full_cmd = ['git']
     if repo.absolute() != Path().absolute():
         full_cmd += ['-C', str(repo)]
     full_cmd += cmd
 
-    logger.info(f'CMD: {" ".join(full_cmd)}' + (f'| {kw}' if kw else ''))
-    _check_call(full_cmd, *a, **kw)
+    msg = f'CMD: {" ".join(full_cmd)}' + (f'| {kw}' if kw else '')
+    logger.info(msg)
+    _check_call(full_cmd, **kw)
 
 
-def check_output(repo: Path, cmd: List[str], *a: Any, **kw: Any) -> str:
+def check_output(repo: Path, cmd: list[str], **kw: Any) -> str: # noqa: ANN401
     full_cmd = ['git']
     if repo.absolute() != Path().absolute():
         full_cmd += ['-C', str(repo)]
     full_cmd += cmd
 
-    logger.info(f'CMD: {" ".join(full_cmd)}' + (f'| {kw}' if kw else ''))
-    return cast(bytes, _check_output(full_cmd, *a, **kw)).decode()
+    msg = f'CMD: {" ".join(full_cmd)}' + (f'| {kw}' if kw else '')
+    logger.info(msg)
+    return cast(bytes, _check_output(full_cmd, **kw)).decode()
 
 
 def genhash() -> str:
     def ch() -> str:
-        return chr(choice(list(range(ord('g'), ord('z')+1))))
+        return chr(choice(list(range(ord('g'), ord('z')+1)))) # noqa: S311
     return ''.join([ch() for _ in range(0,11)])
 
 
-def extract_branches_from_line(line: str, remote_list: List[str]=['origin']) -> List[str]:
+def extract_branches_from_line(
+        line: str, remote_list: list[str]=['origin'], # noqa: B006
+    ) -> list[str]:
     remotes = tuple(f'{x.rstrip("/")}/' for x in remote_list)
     split = line.strip().split(', ')
-    result: List[str] = []
+    result: list[str] = []
     for x in split:
         if not x:
             continue
@@ -148,6 +148,6 @@ def extract_branches_from_line(line: str, remote_list: List[str]=['origin']) -> 
         if x.startswith('tag: '):
             continue
         if '->' in x:
-            _, x = x.split('->')
+            _, x = x.split('->') # noqa: PLW2901
         result.append(x.strip())
     return result

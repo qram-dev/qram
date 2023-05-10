@@ -1,8 +1,9 @@
 import asyncio
 import logging
 import time
+from collections.abc import Callable
 from threading import Thread
-from typing import Any, Callable
+from typing import Any
 
 from requests import get, post
 
@@ -17,7 +18,7 @@ class ServerThread(Thread):
     exception: Exception | None
     timeout: float | None
 
-    def __init__(self, debug: bool, config: Config, timeout: float=10):
+    def __init__(self, config: Config, *, debug: bool, timeout: float=10):
         super().__init__(name=f'Qram-{config.app.provider}:{config.app.port}')
         self.debug = debug
         self.config = config
@@ -26,7 +27,7 @@ class ServerThread(Thread):
 
     def run(self) -> None:
         try:
-            asyncio.run(make_server(self.debug, self.config, True))
+            asyncio.run(make_server(self.config, debug=self.debug, provide_stop=True))
         except Exception as e:
             self.exception = e
 

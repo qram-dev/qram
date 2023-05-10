@@ -1,12 +1,11 @@
-
 import logging
-
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Optional as TOptional
+from typing import Any
+from typing import Optional as TOptional
 
-from schema import Schema, Optional, And, Or, Literal, Use
 import yaml
+from schema import And, Literal, Optional, Or, Schema, Use
 
 
 logger = logging.getLogger(__name__)

@@ -1,13 +1,13 @@
-#!/usr/bin/env python3
 import logging
 
 from meiga import Failure, Success
+from tornado.ioloop import IOLoop
 from tornado.queues import Queue
 from tornado.web import Application, RequestHandler
-from tornado.ioloop import IOLoop
+
+from qram.config import Config
 
 from . import ExpectedError, GithubWebhook, ProviderEvent, StopEvent, Webhook
-from qram.config import Config
 
 
 logger = logging.getLogger(__name__)
@@ -17,16 +17,16 @@ logger = logging.getLogger(__name__)
 #   pyright: reportIncompatibleMethodOverride=false
 
 
-
 class MainHandler(RequestHandler):
     def get(self) -> None:
         self.write('qram')
+
 
 class WebhookHandler(RequestHandler):
     webhook: Webhook
     debug: bool
 
-    def initialize(self, token: str|None, webhook: Webhook, debug: bool) -> None:
+    def initialize(self, token: str|None, webhook: Webhook, debug: bool) -> None: # noqa: FBT001
         self.token = token.encode('utf-8') if token else None
         self.webhook = webhook
         self.debug = debug
@@ -64,6 +64,7 @@ class WebhookHandler(RequestHandler):
             case _ as e:
                 raise RuntimeError(f'unexpected storage result: {e}')
 
+
 class StopHandler(RequestHandler):
     def initialize(self, queue: Queue[ProviderEvent]) -> None:
         self.queue = queue
@@ -72,7 +73,8 @@ class StopHandler(RequestHandler):
         self.queue.put_nowait(StopEvent())
         self.write('Goodbye.')
 
-async def make_server(debug: bool, config: Config, provide_stop: bool) -> None:
+
+async def make_server(config: Config, *, debug: bool, provide_stop: bool) -> None:
     if config.app.hmac:
         logger.info('HMAC secret provided, incoming requests will be verified')
     queue = Queue[ProviderEvent]()
@@ -86,7 +88,7 @@ async def make_server(debug: bool, config: Config, provide_stop: bool) -> None:
     app = Application([
         ('/', MainHandler),
         ('/webhook', WebhookHandler, dict(
-            token=config.app.hmac, webhook=webhook, debug=debug
+            token=config.app.hmac, webhook=webhook, debug=debug,
         )),
         *([('/stop', StopHandler, dict(queue=queue))] if provide_stop else []),
     ], debug=debug)
@@ -96,7 +98,7 @@ async def make_server(debug: bool, config: Config, provide_stop: bool) -> None:
 
     async for event in queue:
         await IOLoop.current().run_in_executor(None, process, event)
-        if type(event) is StopEvent:
+        if isinstance(event, StopEvent):
             break
     logger.info('done with the que')
 
