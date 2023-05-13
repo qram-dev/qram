@@ -1,147 +1,90 @@
+from __future__ import annotations
+
 import logging
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
-from typing import Optional as TOptional
 
 import yaml
-from schema import And, Literal, Optional, Or, Schema, Use
+from pydantic import BaseModel, Extra, Field, StrictStr, root_validator, validator
 
 
 logger = logging.getLogger(__name__)
 
-schema = Schema({
-    'app': {
-        Optional('port'): int,
-        Optional('hmac_file'): And(Use(Path), Path.is_file),
-        'provider': Or(
-            Literal('github'),
-        ),
-        Optional('github'): {object: object},
-    },
-    Optional('branching'): {
-        Optional('target-branch'): str,
-        Optional('branch-folder'): str,
-    },
-    Optional('merge-template'): {
-        Optional('author'): {
-            Optional('name'): str,
-            Optional('email'):  str,
-        },
-        Optional('jinja'): str,
-    }
-})
+class _CfgAuthor(BaseModel, extra=Extra.forbid):
+    name: StrictStr = 'qram'
+    email: StrictStr = 'qram@no.email'
 
-schema_github = Schema({
-    'app_id': str,
-    'installation_id': str,
-    'pem_file':  And(Use(Path), Path.is_file),
-})
+class _CfgMergeTemplate(BaseModel, extra=Extra.forbid):
+    author: _CfgAuthor = _CfgAuthor()
+    jinja: StrictStr = '''#{{pr.number}}: {{pr.title}}
 
-@dataclass
-class Config:
-    app: '_CfgApp'
-    branching: '_CfgBranching'
-    merge_template: '_CfgMergeTemplate'
+{{pr.body}}'''
+
+class _CfgBranching(BaseModel, extra=Extra.forbid):
+    target_branch: StrictStr = 'main'
+    branch_folder: StrictStr = 'mq'
+    _: Any = validator('branch_folder')(lambda bf: bf.strip('/'))
+
+
+def read_from_file(x: str) -> str:
+    p = Path(x)
+    if not p or not p.is_file():
+        raise ValueError(f'invalid file: {p.absolute()}')
+    c = p.read_text().strip()
+    if not c:
+        raise ValueError(f'file is empty: {p.absolute()}')
+    return c
+
+class _CfgGithub(BaseModel, extra=Extra.forbid):
+    app_id: StrictStr
+    installation_id: StrictStr
+    pem: StrictStr = Field(alias='pem_file')
+    _: Any = validator('pem', allow_reuse=True)(read_from_file)
+
+class _CfgGitea(BaseModel, extra=Extra.forbid):
+    pass
+
+class _CfgApp(BaseModel, extra=Extra.forbid):
+    port: int = 8888
+    hmac: StrictStr = Field('', alias='hmac_file')
+    github: _CfgGithub | None
+    gitea: _CfgGitea | None
+    _validate_hmac: Any = validator('hmac', allow_reuse=True)(read_from_file)
+
+    @root_validator
+    @classmethod
+    def validate_providers(cls, field_values: dict[str, Any]) -> dict[str, Any]:
+        providers = ('gitea', 'github')
+        present_providers = [field_values.get(p) is not None for p in providers]
+        providers_string = ', '.join(f'"{p}"' for p in providers)
+        if not any(present_providers):
+            raise ValueError(f'one of {providers_string} has to be specified')
+        if len([p for p in present_providers if p]) > 1:
+            raise ValueError(f'only one of {providers_string} must be specified')
+        return field_values
+
+
+    @property
+    def provider(self) -> str:
+        if self.gitea:
+            return 'gitea'
+        if self.github:
+            return 'github'
+        return '?'
+
+
+class Config(BaseModel, extra=Extra.forbid):
+    app: _CfgApp = _CfgApp.construct()
+    branching: _CfgBranching = _CfgBranching.construct()
+    merge_template: _CfgMergeTemplate = _CfgMergeTemplate.construct()
 
 
     @staticmethod
-    def read_from_repo() -> 'Config':
+    def read_from_repo() -> Config:
         config_file = Path('qram.yml').absolute()
         if not config_file.exists():
             raise FileNotFoundError(f'config file {config_file} does not exist')
 
-        with open(config_file) as f:
+        with Path(config_file).open() as f:
             yy: dict[str, Any] = yaml.safe_load(f)
-        if type(yy) is not dict:
-            raise TypeError(f'{config_file} should contain a dictionary')
-        schema.validate(yy)
-
-        app = yy.get('app', dict())
-        hmac_path = app.get('hmac_file')
-        hmac = Path(hmac_path).read_text().strip() if hmac_path else ''
-        provider = app.get('provider')
-        if provider == 'github':
-            g = app.get('github')
-            if type(g) is not dict:
-                raise TypeError('app.github should be a dictionary')
-            schema_github.validate(g)
-            g['pem'] = Path(g.pop('pem_file')).read_text().strip()
-
-
-        return Config(
-            app=_CfgApp(
-                port=app.get('port', _defaults.app.port),
-                hmac=hmac or _defaults.app.hmac,
-                provider=provider,
-                github=_CfgGithub(**(app.get('github'))) if provider == 'github' else None,
-            ),
-            branching=_CfgBranching(
-                target_branch=yy.get('branching', dict()) \
-                    .get('target-branch', _defaults.branching.target_branch),
-                branch_folder=yy.get('branching', dict()) \
-                    .get('branch-folder', _defaults.branching.branch_folder).strip('/'),
-            ),
-            merge_template=_CfgMergeTemplate(
-                author=_CfgAuthor(
-                    name=yy.get('merge-template', dict()).get('author', dict()) \
-                        .get('name', _defaults.merge_template.author.name),
-                    email=yy.get('merge-template', dict()).get('author', dict()) \
-                        .get('email', _defaults.merge_template.author.email),
-                ),
-                jinja=yy.get('merge-template', dict()) \
-                    .get('jinja', _defaults.merge_template.jinja),
-            )
-        )
-
-@dataclass
-class _CfgMergeTemplate:
-    author: '_CfgAuthor'
-    jinja: str
-
-@dataclass
-class _CfgAuthor:
-    name: str
-    email: str
-
-@dataclass
-class _CfgBranching:
-    target_branch: str
-    branch_folder: str
-
-@dataclass
-class _CfgApp:
-    port: int
-    hmac: str
-    provider: str
-    github: TOptional['_CfgGithub']
-
-@dataclass
-class _CfgGithub:
-    app_id: str
-    installation_id: str
-    pem: str
-
-
-
-_defaults = Config(
-    app=_CfgApp(
-        port=8888,
-        hmac='',
-        provider='?',
-        github=None,
-    ),
-    branching=_CfgBranching(
-        target_branch='main',
-        branch_folder='mq',
-    ),
-    merge_template=_CfgMergeTemplate(
-        author=_CfgAuthor(
-            name='qram',
-            email='qram@no.email',
-        ),
-        jinja='''#{{pr.number}}: {{pr.title}}
-
-{{pr.body}}''',
-    )
-)
+        return Config.parse_obj(yy)

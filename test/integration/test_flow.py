@@ -1,20 +1,19 @@
 import logging
 from pathlib import Path
 from types import SimpleNamespace
-from typing import Generator, Optional
+from typing import Optional
 from unittest.mock import MagicMock
 
 import pytest
-from pytest_bdd import scenarios, given, when, then, parsers
+from pytest_bdd import given, parsers, scenarios, then, when
 
-import qram.config
 from qram import flow
-from qram.git import Git, Hash
 from qram.config import Config
 from qram.formatter import BranchFormatter
+from qram.git import Git, Hash
 from qram.web.provider.github import Pr
-from test.integration import DataTable, datatable, str2bool
 
+from test.integration import DataTable, datatable, str2bool
 from test.integration.mocks import GithubMock
 
 
@@ -48,13 +47,13 @@ class Context(SimpleNamespace):
 
 
 @pytest.fixture()
-def context(caplog: pytest.LogCaptureFixture) -> Generator[Context, None, None]:
+def context(caplog: pytest.LogCaptureFixture) -> Context:
     caplog.set_level(logging.INFO)
     caplog.handler.setFormatter(logging.Formatter(
         '{levelname:5} : {name:10} : {message}', style='{',
     ))
-    cfg = qram.config._defaults
-    yield Context(
+    cfg = Config.construct()
+    return Context(
         config = cfg,
         branches = BranchFormatter(cfg),
         gh = GithubMock(),

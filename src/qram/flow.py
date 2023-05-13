@@ -13,6 +13,7 @@ from qram.config import Config
 from qram.formatter import BranchFormatter
 from qram.web.provider import ProviderRepoApi
 
+
 logger = getLogger(__name__)
 
 def _merge(git: Git, pr_num: int, gh: ProviderRepoApi, config: Config) -> None:
@@ -42,7 +43,7 @@ def _merge(git: Git, pr_num: int, gh: ProviderRepoApi, config: Config) -> None:
     # First push pr branch, then push target, do it in 2 separate pushes. Otherwise github loses
     # its head and displays sillyness in PR commit list
     logger.info('pushing head')
-    git.push(pr.branch_head, True)
+    git.push(pr.branch_head, force=True)
     logger.info('pushing target')
     git.push(branches_global.target)
     git.delete_branch(

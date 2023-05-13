@@ -1,7 +1,6 @@
 import logging
 import os
 from collections.abc import Callable, Generator
-from copy import deepcopy
 from datetime import datetime
 from pathlib import Path
 
@@ -32,13 +31,12 @@ def chtmp(tmp_path: Path) -> Generator[None, None, None]:
 
 @pytest.fixture(scope='module')
 def config() -> Config:
-    c = deepcopy(qram.config._defaults)
+    c = Config.construct()
     c.app.hmac = os.environ['QRAM_APP_HMAC']
-    c.app.provider = 'github'
     pem = os.environ.get('QRAM_APP_GITHUB_PEM')
     if pem is None:
         pem = Path(os.environ['QRAM_APP_GITHUB_PEM_FILE']).read_text()
-    c.app.github = qram.config._CfgGithub(
+    c.app.github = qram.config._CfgGithub.construct(
         app_id = os.environ['QRAM_APP_GITHUB_APP_ID'],
         installation_id = os.environ['QRAM_APP_GITHUB_INSTALLATION_ID'],
         pem = pem.strip(),

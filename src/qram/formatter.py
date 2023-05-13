@@ -2,6 +2,7 @@ from functools import cache
 
 from qram.config import Config
 
+
 class BranchFormatter:
     _config: Config
     queue: str

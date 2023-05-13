@@ -85,6 +85,10 @@ async def make_server(config: Config, *, debug: bool, provide_stop: bool,
 
     match config.app.provider:
         case 'github':
+            assert config.app.github is not None
+            logger.info( '    PROVIDER: GITHUB')
+            logger.info(f'         APP: {config.app.github.app_id}')
+            logger.info(f'INSTALLATION: {config.app.github.installation_id}')
             webhook = GithubWebhook(queue)
             handler = GithubHandler(github_api(config))
         case _:
