@@ -4,10 +4,10 @@
     dependencies = [
         'jinja2',
         'meiga',
+        'pydantic',
         'pyjwt[crypto]',
         'pyyaml',
         'requests',
-        'schema',
         'tornado',
     ]
 
