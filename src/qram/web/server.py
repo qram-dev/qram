@@ -70,7 +70,7 @@ class StopHandler(RequestHandler):
         self.queue = queue
 
     def post(self) -> None:
-        self.queue.put_nowait(web.StopEvent())
+        self.queue.put_nowait(web.StopEvent().caused_by('WEB/stop'))
         self.write('Goodbye.')
 
 
@@ -79,9 +79,9 @@ async def make_server(config: Config, *, debug: bool, provide_stop: bool,
     if config.app.hmac:
         logger.info('HMAC secret provided, incoming requests will be verified')
     queue = EventQueue()
-    await queue.put(web.PingEvent())
+    await queue.put(web.PingEvent().caused_by('initialization'))
     if initialize_repos:
-        await queue.put(web.InitializeEvent())
+        await queue.put(web.InitializeEvent().caused_by('initialization'))
 
     match config.app.provider:
         case 'github':

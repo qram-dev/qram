@@ -1,7 +1,7 @@
 import abc
 import hashlib
 import hmac
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from logging import getLogger
 from typing import Any, Literal, cast
 
@@ -92,30 +92,33 @@ class GithubWebhook(Webhook):
         event: QramEvent
 
         if is_created_pr_comment(j):
-            logger.info(f'this is PR comment - {j["comment"]["html_url"]}')
+            c = j['comment']
+            logger.info(f'this is PR comment - {c["html_url"]}')
             event = PrCommentEvent(
                 repo=j['repository']['full_name'],
                 pr=j['issue']['number'],
                 number=j['comment']['id'],
                 message=j['comment']['body'],
-            )
+            ).caused_by(f'WEB/webhook PR comment {c["id"]}')
             self.queue.put_nowait(event)
             logger.info(f'enqueued: {event}')
             return Success(True)
 
+        # FIXME: is completed check
         if is_completed_workflow(j):
-            logger.info(f'this is completed workflow - {j["workflow_run"]["html_url"]}')
+            wfr = j['workflow_run']
+            logger.info(f'this is completed workflow - {wfr["html_url"]}')
             event = CheckCompletedEvent(
                 repo=j['repository']['full_name'],
                 commit=j['workflow_run']['head_sha'],
-            )
+            ).caused_by(f'WEB/webhook WORKFLOW {wfr["id"]}')
             self.queue.put_nowait(event)
             logger.info(f'enqueued: {event}')
             return Success(True)
 
         if is_ping_event(j):
             logger.info('this is ping event from terminal')
-            event = PingEvent()
+            event = PingEvent().caused_by('WEB/webhook PING')
             self.queue.put_nowait(event)
             logger.info(f'enqueued: {event}')
             return Success(True)
@@ -154,9 +157,10 @@ class GithubHandler(EventHandler):
         )
         if not r.ok:
             msg = f'reaction to comment failed:\n{r.content.decode()}'
-            logger.warning(msg)
+            logger.error(msg)
             return Failure(ExpectedError(msg))
         logger.info('done')
+        # FIXME: process current command and enqueue PR
         return Success(True)
 
 
@@ -191,8 +195,20 @@ def is_check_completed(j: dict[str, Any]) -> bool:
     return False
 
 
+_event_id = 1
+@dataclass
 class QramEvent:
-    pass
+    event_id: int = field(init=False)
+    cause: str = field(init=False)
+    def __post_init__(self) -> None:
+        global _event_id
+        self.event_id = _event_id
+        self.cause = ''
+        _event_id += 1
+
+    def caused_by(self, explanation: str) -> 'QramEvent':
+        self.cause = explanation
+        return self
 
 @dataclass
 class ProviderEvent(QramEvent):
