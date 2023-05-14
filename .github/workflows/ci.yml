@@ -62,6 +62,7 @@ jobs:
         QRAM_APP_GITHUB_APP_ID: ${{ secrets.QRAM_APP_GITHUB_APP_ID }}
         QRAM_APP_GITHUB_INSTALLATION_ID: ${{ secrets.QRAM_APP_GITHUB_INSTALLATION_ID }}
         QRAM_APP_GITHUB_PEM: ${{ secrets.QRAM_APP_GITHUB_PEM }}
+        QRAM_WEBHOOK_URL: ""
     - name: upload system coverage to Codecov
       if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
       uses: codecov/codecov-action@v3

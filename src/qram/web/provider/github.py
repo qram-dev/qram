@@ -82,18 +82,22 @@ class Github(ProviderApi):
             'Accept': 'application/vnd.github+json',
             'X-GitHub-Api-Version': '2022-11-28',
         }
-        h = cast(dict[str, Any], kwargs.get('headers', dict()))
-        if h:
-            headers.update(h)
 
         destination = destination.lstrip('/')
+        url = f'https://api.github.com/{destination}'
+        logger.debug(f'{method} -> {url}')
+        h = cast(dict[str, Any], kwargs.get('headers', dict()))
+        if h:
+            logger.debug(f'HEADERS : {h}')
+            headers.update(h)
+
         r = request(
             method=method,
-            url=f'https://api.github.com/{destination}',
+            url=url,
             headers=headers,
             **kwargs,
         )
-        logger.debug(f'{method} -> {r.status_code}')
+        logger.debug(f'{method} => {r.status_code}')
         return r
 
     def get(self, destination: str, **kwargs: Any) -> Response:
@@ -107,6 +111,25 @@ class Github(ProviderApi):
 
     def repo(self, owner: str, repo: str) -> 'GithubRepo':
         return GithubRepo(self, owner, repo)
+
+
+    def configure_webhook(self, config: Config) -> None:
+        gh = config.app.github
+        assert gh
+        assert gh.webhook_url
+        msg = f'github: app={gh.app_id} installation={gh.installation_id}: reconfigure webhook to '
+        msg += gh.webhook_url
+        if config.app.hmac:
+            msg += ' (with HMAC secret)'
+        logger.info(msg)
+        payload = dict(
+            url=gh.webhook_url,
+            content_type='json',
+            secret=config.app.hmac,
+        )
+        r = self._request('PATCH', 'app/hook/config', json=payload, use_jwt=True)
+        if not r.ok:
+            raise RuntimeError(r.content.decode())
 
 
 class GithubRepo(ProviderRepoApi):
