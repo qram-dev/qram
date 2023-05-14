@@ -34,10 +34,10 @@ def github_api(cfg: Config) -> 'Github':
             'iss': github.app_id,
         }
         return jwt.encode(jwt_payload, github.pem, algorithm="RS256")
-    encoded_jwt = rejwt()
     url = f'https://api.github.com/app/installations/{github.installation_id}/access_tokens'
 
     def get_token() -> tuple[str, datetime]:
+        encoded_jwt = rejwt()
         logger.debug('requesting new access token from github')
         r = request('POST', url, headers={
             'Accept': 'application/vnd.github+json',
