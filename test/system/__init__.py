@@ -58,7 +58,8 @@ class ServerThread(Thread):
 
 def wait_for(check: Callable[[], bool], errmsg: str, attempts: int=5) -> None:
     exception = None
-    for i in range(attempts + 1):
+    for i in range(1, attempts + 2):
+        logger.debug(f'waiting for {check}, attempt #{i}')
         try:
             if check():
                 return

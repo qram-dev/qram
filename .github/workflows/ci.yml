@@ -52,8 +52,8 @@ jobs:
       run: |
         pytest \
           -o log_cli=1 \
-          --log-cli-level=INFO \
-          --log-cli-format='%(levelname)-6s :: %(name)-25s :: %(message)s' \
+          --log-cli-level=DEBUG \
+          --log-cli-format='%(asctime)s %(levelname)-6s :: %(name)-25s :: %(message)s' \
           test/system/ \
           -m sysA \
           --cov
@@ -103,8 +103,8 @@ jobs:
         echo "QRAM_WEBHOOK_URL=${URL}/webhook" > .env
         pytest \
           -o log_cli=1 \
-          --log-cli-level=INFO \
-          --log-cli-format='%(levelname)-6s :: %(name)-25s :: %(message)s' \
+          --log-cli-level=DEBUG \
+          --log-cli-format='%(asctime)s %(levelname)-6s :: %(name)-25s :: %(message)s' \
           test/system/ \
           -m sysB \
           --cov
