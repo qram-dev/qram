@@ -10,7 +10,7 @@ from qram.config import Config
 from qram.web.provider import Pr, ProviderApi, ProviderRepoApi
 
 
-logger = getLogger()
+logger = getLogger(__name__)
 
 # Github API is weird.
 # Some endpoints require you to generate JWT from private PEM and App id.
