@@ -1,12 +1,10 @@
 import logging
-import os
 from collections.abc import Callable, Generator
 from datetime import datetime
 from pathlib import Path
 
 import pytest
 
-import qram.config
 from qram.config import Config
 from qram.web.provider.github import Github, github_api
 
@@ -31,17 +29,7 @@ def chtmp(tmp_path: Path) -> Generator[None, None, None]:
 
 @pytest.fixture(scope='module')
 def config() -> Config:
-    c = Config.construct()
-    c.app.hmac = os.environ['QRAM_APP_HMAC']
-    pem = os.environ.get('QRAM_APP_GITHUB_PEM')
-    if pem is None:
-        pem = Path(os.environ['QRAM_APP_GITHUB_PEM_FILE']).read_text()
-    c.app.github = qram.config._CfgGithub.construct(
-        app_id = os.environ['QRAM_APP_GITHUB_APP_ID'],
-        installation_id = os.environ['QRAM_APP_GITHUB_INSTALLATION_ID'],
-        pem = pem.strip(),
-    )
-    return c
+    return Config.github_config_from_env()
 
 
 @pytest.fixture(scope='module')
@@ -51,16 +39,9 @@ def api(config: Config) -> Github:
 
 @pytest.fixture(scope='module')
 def webhook_reconfigured(api: Github, config: Config) -> None:
-    url = os.environ['QRAM_WEBHOOK_URL']
-    logger.info(f'⬜  reconfiguring Github App webhook url to -> {url} ...')
-    payload = dict(
-        url=url,
-        content_type='json',
-        secret=config.app.hmac,
-    )
-    r = api._request('PATCH', 'app/hook/config', json=payload, use_jwt=True)
-    if not r.ok:
-        raise RuntimeError(r.content.decode())
+    assert config.app.github
+    logger.info('⬜  reconfiguring Github App webhook url ...')
+    api.configure_webhook(config)
     logger.info('🟩  webhook reconfigured')
 
 

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import os
 from pathlib import Path
 from typing import Any
 
@@ -39,6 +40,7 @@ class _CfgGithub(BaseModel, extra=Extra.forbid):
     app_id: StrictStr
     installation_id: StrictStr
     pem: StrictStr = Field(alias='pem_file')
+    webhook_url: StrictStr | None
     _: Any = validator('pem', allow_reuse=True)(read_from_file)
 
 class _CfgGitea(BaseModel, extra=Extra.forbid):
@@ -88,3 +90,19 @@ class Config(BaseModel, extra=Extra.forbid):
         with Path(config_file).open() as f:
             yy: dict[str, Any] = yaml.safe_load(f)
         return Config.parse_obj(yy)
+
+
+    @staticmethod
+    def github_config_from_env() -> Config:
+        c = Config.construct()
+        c.app.hmac = os.environ['QRAM_APP_HMAC']
+        pem = os.environ.get('QRAM_APP_GITHUB_PEM')
+        if pem is None:
+            pem = Path(os.environ['QRAM_APP_GITHUB_PEM_FILE']).read_text()
+        c.app.github = _CfgGithub.construct(
+            app_id = os.environ['QRAM_APP_GITHUB_APP_ID'],
+            installation_id = os.environ['QRAM_APP_GITHUB_INSTALLATION_ID'],
+            pem = pem.strip(),
+            webhook_url = os.environ['QRAM_WEBHOOK_URL'],
+        )
+        return c

@@ -16,6 +16,7 @@
 
 [project.optional-dependencies]
     dev = [
+        'python-dotenv',
         'mypy',
         'pytest',
         'pytest-bdd',
