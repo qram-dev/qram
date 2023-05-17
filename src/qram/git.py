@@ -71,6 +71,10 @@ class Git:
         check_call(self.repo, ['rebase', where])
 
 
+    def clone(self, origin: str) -> None:
+        check_call(self.repo, ['clone', origin, '.'])
+
+
     def merge(self, what: str|Hash, message: str, author: str,
               committer_name: str, committer_email: str) -> None:
         # FIXME: needs rollback if something fails
@@ -83,6 +87,7 @@ class Git:
             '--author', author,
             '--cleanup=whitespace', '-m', message,
         ])
+
 
     def branches_at_ref(self, ref: str|Hash) -> list[str]:
         output = check_output(self.repo, ['branch', '--points-at', ref])

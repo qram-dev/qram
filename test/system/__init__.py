@@ -56,16 +56,17 @@ class ServerThread(Thread):
             raise self.exception
 
 
-def wait_for(check: Callable[[], bool], errmsg: str, attempts: int=5) -> None:
+def wait_for(check: Callable[[], bool], errmsg: str, *, attempts: int=5, sleep_mult: float=1) \
+    -> None:
     exception = None
-    for i in range(1, attempts + 2):
-        logger.debug(f'waiting for {check}, attempt #{i}')
+    for att in range(1, attempts + 2):
+        logger.debug(f'waiting for {check}, attempt #{att}')
         try:
             if check():
                 return
         except Exception as e:
             exception = e
-        time.sleep(i)
+        time.sleep(att*sleep_mult)
     errmsg = f'{errmsg} after {attempts} checks'
     logger.error(f'🟥  {errmsg}')
     if exception:

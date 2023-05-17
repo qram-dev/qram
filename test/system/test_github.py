@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 
 from qram.config import Config
+from qram.globals import WORKDIR
 from qram.web.provider.github import Github, github_api
 
 from test import chdir
@@ -72,18 +73,18 @@ def test_app_start_stop(config: Config, caplog: pytest.LogCaptureFixture) -> Non
         )
 
 
-@pytest.mark.skip
 @pytest.mark.sysA
 def test_app_initialize_repos(config: Config, caplog: pytest.LogCaptureFixture) -> None:
-    # FIXME: no checkouts done during initialization yet. This test here is just so I won't forget
-    # to actually test it
+    caplog.set_level(logging.INFO, logger='qram.web.server')
     server_thread = ServerThread(config, debug=False, initialize_repos=True)
     with server_thread:
         wait_for(
             log_contains(caplog, 'Initialization done'),
             'repos never got initialized',
+            attempts=10,
+            sleep_mult=2
         )
-        assert (Path(ORG) / REPO / 'README.md').is_file(), 'repo was not checked out'
+        assert (WORKDIR / ORG / REPO / 'README.md').is_file(), 'repo was not checked out'
 
 
 @pytest.mark.sysB

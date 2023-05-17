@@ -132,6 +132,13 @@ class Github(ProviderApi):
             raise RuntimeError(r.content.decode())
 
 
+    def repo_clone_url(self, repo: str) -> str:
+        now = datetime.now()
+        if now > self.expires_at:
+            self.token, self.expires_at = self.reinitialize()
+        return f'https://x-access-token:{self.token}@github.com/{repo}.git'
+
+
 class GithubRepo(ProviderRepoApi):
     def __init__(self, gh: Github, owner: str, repo: str) -> None:
         self.api = gh
