@@ -5,6 +5,7 @@ from collections.abc import Callable
 from threading import Thread
 from typing import Any
 
+import pytest
 from requests import get, post
 
 from qram.config import Config
@@ -56,18 +57,35 @@ class ServerThread(Thread):
             raise self.exception
 
 
-def wait_for(check: Callable[[], bool], errmsg: str, attempts: int=5) -> None:
+def wait_for(check: Callable[[], bool], errmsg: str, *, attempts: int=5, sleep_mult: float=1) \
+    -> None:
     exception = None
-    for i in range(1, attempts + 2):
-        logger.debug(f'waiting for {check}, attempt #{i}')
+    for att in range(1, attempts + 2):
+        logger.debug(f'waiting for {check}, attempt #{att}')
         try:
             if check():
                 return
         except Exception as e:
             exception = e
-        time.sleep(i)
+        time.sleep(att*sleep_mult)
     errmsg = f'{errmsg} after {attempts} checks'
     logger.error(f'🟥  {errmsg}')
     if exception:
         raise TimeoutError(errmsg) from exception
     raise TimeoutError(errmsg)
+
+
+class BetterCaplog:
+    def __init__(self, caplog: pytest.LogCaptureFixture) -> None:
+        self.caplog = caplog
+
+    def set_level(self, level: int, logger: str) -> None:
+        current_log_level = logging.getLogger(logger).getEffectiveLevel()
+        assert current_log_level > logging.NOTSET, 'effective logging should be at least WARNING?!'
+        if current_log_level > level:
+            self.caplog.set_level(level, logger)
+
+    def log_contains(self, msg: str) -> Callable[[], bool]:
+        def contains() -> bool:
+            return any(msg in record.message for record in self.caplog.records)
+        return contains

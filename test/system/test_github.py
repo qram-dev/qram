@@ -1,15 +1,16 @@
 import logging
-from collections.abc import Callable, Generator
+from collections.abc import Generator
 from datetime import datetime
 from pathlib import Path
 
 import pytest
 
 from qram.config import Config
+from qram.globals import WORKDIR
 from qram.web.provider.github import Github, github_api
 
 from test import chdir
-from test.system import ServerThread, wait_for
+from test.system import BetterCaplog, ServerThread, wait_for
 
 
 # these are under our protection
@@ -63,34 +64,34 @@ def test_get_pr(api: Github) -> None:
 
 
 @pytest.mark.sysA
-def test_app_start_stop(config: Config, caplog: pytest.LogCaptureFixture) -> None:
+def test_app_start_stop(config: Config, better_caplog: BetterCaplog) -> None:
     server_thread = ServerThread(config, debug=False)
     with server_thread:
         wait_for(
-            log_contains(caplog, 'Pong!'),
+            better_caplog.log_contains('Pong!'),
             'PingEvent never got processed',
         )
 
 
-@pytest.mark.skip
 @pytest.mark.sysA
-def test_app_initialize_repos(config: Config, caplog: pytest.LogCaptureFixture) -> None:
-    # FIXME: no checkouts done during initialization yet. This test here is just so I won't forget
-    # to actually test it
+def test_app_initialize_repos(config: Config, better_caplog: BetterCaplog) -> None:
+    better_caplog.set_level(logging.INFO, logger='qram.web.server')
     server_thread = ServerThread(config, debug=False, initialize_repos=True)
     with server_thread:
         wait_for(
-            log_contains(caplog, 'Initialization done'),
+            better_caplog.log_contains('Initialization done'),
             'repos never got initialized',
+            attempts=10,
+            sleep_mult=2
         )
-        assert (Path(ORG) / REPO / 'README.md').is_file(), 'repo was not checked out'
+        assert (WORKDIR / ORG / REPO / 'README.md').is_file(), 'repo was not checked out'
 
 
 @pytest.mark.sysB
-def test_comment_reaction(config: Config, api: Github, caplog: pytest.LogCaptureFixture,
+def test_comment_reaction(config: Config, api: Github, better_caplog: BetterCaplog,
                           webhook_reconfigured: None) -> None:
-    caplog.set_level(logging.INFO, logger='qram.web')
-    caplog.set_level(logging.INFO, logger='qram.web.server')
+    better_caplog.set_level(logging.INFO, logger='qram.web')
+    better_caplog.set_level(logging.INFO, logger='qram.web.server')
     server_thread = ServerThread(config, debug=True)
     with server_thread:
         message = f"!qram\nbeep-boop, i'm a bot, time is {datetime.now()}"  # noqa: DTZ005
@@ -106,15 +107,14 @@ def test_comment_reaction(config: Config, api: Github, caplog: pytest.LogCapture
         logger.info('⬜  check if webhook got it...')
         try:
             wait_for(
-                log_contains(caplog, 'this is PR comment'),
+                better_caplog.log_contains('this is PR comment'),
                 'webhook never got "comment" event',
             )
             logger.info('🟩  got it')
 
             logger.info('⬜  check if worker processed it...')
             wait_for(
-                log_contains(caplog,
-                    'It is meant for us'),
+                better_caplog.log_contains('It is meant for us'),
                 'PrCommentEvent never got processed',
             )
             logger.info('🟩  processed')
@@ -131,11 +131,3 @@ def test_comment_reaction(config: Config, api: Github, caplog: pytest.LogCapture
                 logger.error(f'🟥  delete failed: {r.content.decode()}')
                 raise RuntimeError(r.content.decode())
             logger.info('🟩  comment deleted')
-
-
-def log_contains(capture: pytest.LogCaptureFixture, msg: str) -> Callable[[], bool]:
-    def contains() -> bool:
-        return any(msg in record.message for record in capture.records)
-    return contains
-
-logging.basicConfig(level=logging.INFO)

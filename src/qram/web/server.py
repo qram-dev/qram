@@ -102,7 +102,7 @@ async def make_server(config: Config, *, debug: bool, provide_stop: bool,
         *([('/stop', StopHandler, dict(queue=queue))] if provide_stop else []),
     ], debug=debug)
 
-    app.listen(config.app.port)
+    server = app.listen(config.app.port)
     logger.info(f'serving on port {config.app.port}')
 
     async for event in queue:
@@ -111,6 +111,8 @@ async def make_server(config: Config, *, debug: bool, provide_stop: bool,
             break
         logger.debug('next event...')
     logger.info('done with the que')
+    server.stop()
+    logger.info('server stopped')
 
 
 def process(event: web.QramEvent, handler: EventHandler) -> None:

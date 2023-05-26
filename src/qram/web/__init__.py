@@ -1,6 +1,7 @@
 import abc
 import hashlib
 import hmac
+import shutil
 from dataclasses import dataclass, field
 from logging import getLogger
 from typing import Any, Literal, cast
@@ -10,6 +11,8 @@ from tornado.escape import json_decode
 from tornado.httputil import HTTPServerRequest
 from tornado.queues import Queue
 
+from qram.git import Git
+from qram.globals import WORKDIR
 from qram.web.provider.github import Github
 
 
@@ -134,9 +137,34 @@ class GithubHandler(EventHandler):
 
 
     def handle_initialization(self) -> Result[bool, ExpectedError]:
-        logger.info('This may take awhile...')
-        import time
-        time.sleep(1)
+        logger.info('listing repos available to this installation')
+        r = self.api.get('/installation/repositories')
+        if not r.ok:
+            msg = f'listing repos failed: {r.content.decode()}'
+            logger.error(msg)
+            return Failure(ExpectedError(msg))
+
+        j = r.json()
+        count = j['total_count']
+        msg = f'Found {count} repos'
+        if count > 1:
+            msg += '; this might take awhile...'
+        logger.info(msg)
+
+        for repo in j['repositories']:
+            repo_fn: str = repo['full_name']
+            logger.info(f'--- cloning {repo_fn}')
+            repo_path = WORKDIR / repo_fn
+            # FIXME: think of a way to NOT re-clone everything, yet support repos being
+            # deleted and recreated
+            if repo_path.exists():
+                logger.info(f'path {repo_path} exists, removing')
+                shutil.rmtree(repo_path)
+            repo_path.mkdir(parents=True)
+            git = Git(repo_path)
+            clone_url = self.api.repo_clone_url(repo_fn)
+            git.clone(clone_url)
+            logger.info(f'--- {repo_fn} cloned')
         return Success(True)
 
 
