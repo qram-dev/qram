@@ -56,6 +56,27 @@ def test_whoami(api: Github) -> None:
 
 
 @pytest.mark.sysA
+def test_token_reinitialization(api: Github) -> None:
+    old_expires = api.expires_at
+    old_token = api.token
+
+    r = api.get('/installation/repositories')
+    assert r.ok
+
+    middle_expires = api.expires_at
+    middle_token = api.token
+    assert middle_expires == old_expires
+    assert middle_token == old_token
+
+    api.expires_at = datetime.utcnow()
+    r = api.get('/installation/repositories')
+    assert r.ok
+
+    assert api.token != old_token
+    assert api.expires_at > datetime.utcnow()
+
+
+@pytest.mark.sysA
 def test_get_pr(api: Github) -> None:
     pr = api.repo(ORG, REPO).get_pr(1)
     assert pr.number == 1
