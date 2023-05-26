@@ -70,7 +70,7 @@ class Github(ProviderApi):
 
     def _request(self, method: str, destination: str, use_jwt: bool=False,
                  **kwargs: Any) -> Response:
-        now = datetime.now()
+        now = datetime.utcnow()
         if use_jwt:
             token = self.rejwt()
         else:
@@ -133,7 +133,7 @@ class Github(ProviderApi):
 
 
     def repo_clone_url(self, repo: str) -> str:
-        now = datetime.now()
+        now = datetime.utcnow()
         if now > self.expires_at:
             self.token, self.expires_at = self.reinitialize()
         return f'https://x-access-token:{self.token}@github.com/{repo}.git'
