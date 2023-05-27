@@ -32,20 +32,15 @@ jobs:
       run: ruff src
 
     - name: unit tests
-      run: pytest test/unit/ test/component/ --cov
-    - name: upload unit coverage to Codecov
-      uses: codecov/codecov-action@v3
-      with:
-        fail_ci_if_error: true
-        flags: unit
+      run: |
+        pytest test/unit/ test/component/ --cov --cov-report xml
+        mkdir coverage
+        mv coverage.xml coverage/unit.xml
 
     - name: integration tests
-      run: pytest test/integration/ --cov
-    - name: upload integration coverage to Codecov
-      uses: codecov/codecov-action@v3
-      with:
-        fail_ci_if_error: true
-        flags: integration
+      run: |
+        pytest test/integration/ --cov --cov-report xml
+        mv coverage.xml coverage/integration.xml
 
     - name: system tests (A)
       if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
@@ -56,20 +51,21 @@ jobs:
           --log-cli-format='%(asctime)s %(levelname)-6s :: %(name)-25s :: %(message)s' \
           test/system/ \
           -m sysA \
-          --cov
+          --cov \
+          --cov-report xml
+        mv coverage.xml coverage/system.a.xml
       env:
         QRAM_APP_HMAC: ${{ secrets.QRAM_APP_HMAC }}
         QRAM_APP_GITHUB_APP_ID: ${{ secrets.QRAM_APP_GITHUB_APP_ID }}
         QRAM_APP_GITHUB_INSTALLATION_ID: ${{ secrets.QRAM_APP_GITHUB_INSTALLATION_ID }}
         QRAM_APP_GITHUB_PEM: ${{ secrets.QRAM_APP_GITHUB_PEM }}
         QRAM_WEBHOOK_URL: ""
-    - name: upload system coverage to Codecov
-      if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
-      uses: codecov/codecov-action@v3
-      with:
-        fail_ci_if_error: true
-        flags: system-a
 
+    - uses: actions/upload-artifact@v3
+      with:
+        name: coverage-first
+        path: coverage/
+        if-no-files-found: error
 
   system-test-with-webhook:
     needs: ci
@@ -107,14 +103,68 @@ jobs:
           --log-cli-format='%(asctime)s %(levelname)-6s :: %(name)-25s :: %(message)s' \
           test/system/ \
           -m sysB \
-          --cov
+          --cov \
+          --cov-report xml
+        mkdir coverage
+        mv coverage.xml coverage/system.b.xml
       env:
         QRAM_APP_HMAC: ${{ secrets.QRAM_APP_HMAC }}
         QRAM_APP_GITHUB_APP_ID: ${{ secrets.QRAM_APP_GITHUB_APP_ID }}
         QRAM_APP_GITHUB_INSTALLATION_ID: ${{ secrets.QRAM_APP_GITHUB_INSTALLATION_ID }}
         QRAM_APP_GITHUB_PEM: ${{ secrets.QRAM_APP_GITHUB_PEM }}
-    - name: upload system coverage to Codecov
+    - uses: actions/upload-artifact@v3
+      with:
+        name: coverage-second
+        path: coverage/
+        if-no-files-found: error
+
+
+  # upload coverage only if everything succeeds, to avoid weird temporary results when part of
+  # tests fail between PR updates
+  codecov:
+    needs:
+      - ci
+      - system-test-with-webhook
+    # without `always()` will skip if system is skipped; see:
+    # - https://github.com/actions/runner/issues/491
+    # - https://stackoverflow.com/questions/69354003
+    if: |
+      always() &&
+      needs.ci.result == 'success' && (
+        needs.system-test-with-webhook.result == 'success'
+        || needs.system-test-with-webhook.result == 'skipped'
+      )
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Download 1st part of coverage
+      uses: actions/download-artifact@v3
+      with:
+        name: coverage-first
+    - name: Download 2nd part of coverage
+      uses: actions/download-artifact@v3
+      if: needs.system-test-with-webhook.result == 'success'
+      with:
+        name: coverage-second
+
+    - name: Upload unit
       uses: codecov/codecov-action@v3
       with:
+        files: unit.xml
         fail_ci_if_error: true
-        flags: system-b
+        flags: unit
+    - name: Upload integration
+      uses: codecov/codecov-action@v3
+      with:
+        files: integration.xml
+        fail_ci_if_error: true
+        flags: integration
+    - name: Upload system
+      uses: codecov/codecov-action@v3
+      if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+      with:
+        files: system.a.xml, system.b.xml
+        fail_ci_if_error: true
+        flags: system
