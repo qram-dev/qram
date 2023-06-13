@@ -4,10 +4,12 @@ from meiga import Failure, Success
 from tornado.ioloop import IOLoop
 from tornado.web import Application, RequestHandler
 
-from qram import web
 from qram.config import Config
-from qram.web import EventHandler, EventQueue, ExpectedError, GithubHandler, GithubWebhook, Webhook
+from qram.errors import ExpectedError
+from qram.web import events
 from qram.web.provider.github import github_api
+from qram.web.webhook.base import Webhook, EventHandler
+from qram.web.webhook.github import GithubHandler, GithubWebhook
 
 
 logger = logging.getLogger(__name__)
@@ -66,11 +68,11 @@ class WebhookHandler(RequestHandler):
 
 
 class StopHandler(RequestHandler):
-    def initialize(self, queue: EventQueue) -> None:
+    def initialize(self, queue: events.EventQueue) -> None:
         self.queue = queue
 
     def post(self) -> None:
-        self.queue.put_nowait(web.StopEvent().caused_by('WEB/stop'))
+        self.queue.put_nowait(events.StopEvent().caused_by('WEB/stop'))
         self.write('Goodbye.')
 
 
@@ -78,10 +80,10 @@ async def make_server(config: Config, *, debug: bool, provide_stop: bool,
                       initialize_repos: bool) -> None:
     if config.app.hmac:
         logger.info('HMAC secret provided, incoming requests will be verified')
-    queue = EventQueue()
-    await queue.put(web.PingEvent().caused_by('initialization'))
+    queue = events.EventQueue()
+    await queue.put(events.PingEvent().caused_by('initialization'))
     if initialize_repos:
-        await queue.put(web.InitializeEvent().caused_by('initialization'))
+        await queue.put(events.InitializeEvent().caused_by('initialization'))
 
     match config.app.provider:
         case 'github':
@@ -107,7 +109,7 @@ async def make_server(config: Config, *, debug: bool, provide_stop: bool,
 
     async for event in queue:
         await IOLoop.current().run_in_executor(None, process, event, handler)
-        if isinstance(event, web.StopEvent):
+        if isinstance(event, events.StopEvent):
             break
         logger.debug('next event...')
     logger.info('done with the que')
@@ -115,10 +117,10 @@ async def make_server(config: Config, *, debug: bool, provide_stop: bool,
     logger.info('server stopped')
 
 
-def process(event: web.QramEvent, handler: EventHandler) -> None:
+def process(event: events.QramEvent, handler: EventHandler) -> None:
     logger.debug(f'processing event {event}')
     match event:
-        case web.InitializeEvent():
+        case events.InitializeEvent():
             logger.info('Initializing available repos')
             match handler.handle_initialization():
                 case Success(True):
@@ -126,19 +128,19 @@ def process(event: web.QramEvent, handler: EventHandler) -> None:
                 case _ as e:
                     logger.critical(f'❗ Initialization failed: {e}')
                     return
-        case web.StopEvent():
+        case events.StopEvent():
             logger.info('Requested to stop; Qram will now exit')
             handler.handle_stop()
-        case web.PingEvent():
+        case events.PingEvent():
             logger.info('Pong!')
-        case web.PrCommentEvent() as e:
+        case events.PrCommentEvent() as e:
             logger.info(f'A comment was posted on PR #{e.pr}')
             if event.message.strip().startswith('!qram'):
                 logger.info('It is meant for us!')
                 handler.handle_pr_comment(e)
             else:
                 logger.info('It is just some comment')
-        case web.CheckCompletedEvent() as e:
+        case events.CheckCompletedEvent() as e:
             logger.info(f'A check completed on {e.commit}!')
             handler.handle_check_complete(e)
         case _ as e:
