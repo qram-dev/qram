@@ -11,6 +11,7 @@ from tornado.httputil import HTTPServerRequest
 from qram.errors import ExpectedError
 from qram.git import Git
 from qram.globals import WORKDIR
+from qram.types import Hash
 from qram.web.webhook.base import EventHandler, Webhook
 from qram.web.events import (
     CheckCompletedEvent,

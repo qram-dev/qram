@@ -10,8 +10,9 @@ from pytest_bdd import given, parsers, scenarios, then, when
 from qram import flow
 from qram.config import RepoConfig
 from qram.formatter import BranchFormatter
-from qram.git import Git, Hash
-from qram.web.provider.github import Pr
+from qram.git import Git
+from qram.types import Hash
+from qram.web.provider import Pr
 
 from test.integration import DataTable, datatable, str2bool
 from test.integration.mocks import GithubMock
