@@ -104,8 +104,7 @@ def prepare(git: Git, pr_num: int, gh: ProviderRepoApi, config: Config) -> None:
     logger.info(f'stage completed for #{pr_num}')
 
 
-def mark_merge(git: Git, commit: Hash, config: Config, ci_ok: bool) -> None:
-    pr_num = extract_pr_from_branch_list(git.branches_at_ref(commit), config)
+def mark_merge(git: Git, pr_num: int, config: Config, *, ci_ok: bool) -> None:
     logger.info(f'mark started for #{pr_num}')
     branches_pr = BranchFormatter(config).pr(pr_num)
     if ci_ok:
@@ -114,7 +113,6 @@ def mark_merge(git: Git, commit: Hash, config: Config, ci_ok: bool) -> None:
     else:
         add = branches_pr.bad
         remove = branches_pr.good
-    # git.check_call(['branch', '-f', add, branches.merge])
     git.new_branch(add, branches_pr.merge, force=True)
     if git.branch_exists(remove):
         git.delete_branch(remove, force=True)
