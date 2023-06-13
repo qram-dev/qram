@@ -6,12 +6,13 @@ from random import choice
 from subprocess import call as _call
 from subprocess import check_call as _check_call
 from subprocess import check_output as _check_output
-from typing import Any, NewType, cast
+from typing import Any, cast
+
+from qram.types import Hash
 
 
 logger = getLogger(__name__)
 
-Hash = NewType('Hash', str)
 
 class Git:
     def __init__(self, repo_path: Path) -> None:
