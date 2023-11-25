@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from qram.config import Config
+from qram.config import AppConfig
 from qram.globals import WORKDIR
 from qram.web.provider.github import Github, github_api
 
@@ -29,18 +29,18 @@ def chtmp(tmp_path: Path) -> Generator[None, None, None]:
 
 
 @pytest.fixture(scope='module')
-def config() -> Config:
-    return Config.github_config_from_env()
+def config() -> AppConfig:
+    return AppConfig.github_config_from_env()
 
 
 @pytest.fixture(scope='module')
-def api(config: Config) -> Github:
+def api(config: AppConfig) -> Github:
     return github_api(config)
 
 
 @pytest.fixture(scope='module')
-def webhook_reconfigured(api: Github, config: Config) -> None:
-    assert config.app.github
+def webhook_reconfigured(api: Github, config: AppConfig) -> None:
+    assert config.github
     logger.info('⬜  reconfiguring Github App webhook url ...')
     api.configure_webhook(config)
     logger.info('🟩  webhook reconfigured')
@@ -64,7 +64,7 @@ def test_get_pr(api: Github) -> None:
 
 
 @pytest.mark.sysA
-def test_app_start_stop(config: Config, better_caplog: BetterCaplog) -> None:
+def test_app_start_stop(config: AppConfig, better_caplog: BetterCaplog) -> None:
     server_thread = ServerThread(config, debug=False)
     with server_thread:
         wait_for(
@@ -74,7 +74,7 @@ def test_app_start_stop(config: Config, better_caplog: BetterCaplog) -> None:
 
 
 @pytest.mark.sysA
-def test_app_initialize_repos(config: Config, better_caplog: BetterCaplog) -> None:
+def test_app_initialize_repos(config: AppConfig, better_caplog: BetterCaplog) -> None:
     better_caplog.set_level(logging.INFO, logger='qram.web.server')
     server_thread = ServerThread(config, debug=False, initialize_repos=True)
     with server_thread:
@@ -88,7 +88,7 @@ def test_app_initialize_repos(config: Config, better_caplog: BetterCaplog) -> No
 
 
 @pytest.mark.sysB
-def test_comment_reaction(config: Config, api: Github, better_caplog: BetterCaplog,
+def test_comment_reaction(config: AppConfig, api: Github, better_caplog: BetterCaplog,
                           webhook_reconfigured: None) -> None:
     better_caplog.set_level(logging.INFO, logger='qram.web')
     better_caplog.set_level(logging.INFO, logger='qram.web.server')

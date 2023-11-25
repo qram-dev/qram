@@ -8,7 +8,7 @@ from typing import Any
 import pytest
 from requests import get, post
 
-from qram.config import Config
+from qram.config import AppConfig
 from qram.web.server import make_server
 
 
@@ -19,9 +19,9 @@ class ServerThread(Thread):
     exception: Exception | None
     timeout: float | None
 
-    def __init__(self, config: Config, *, debug: bool, initialize_repos: bool=False,
+    def __init__(self, config: AppConfig, *, debug: bool, initialize_repos: bool=False,
                  timeout: float=10):
-        super().__init__(name=f'Qram-{config.app.provider}:{config.app.port}')
+        super().__init__(name=f'Qram-{config.provider}:{config.port}')
         self.debug = debug
         self.config = config
         self.timeout = timeout
@@ -40,15 +40,15 @@ class ServerThread(Thread):
         self.start()
 
         def server_started() -> bool:
-            r = get(f'http://localhost:{self.config.app.port}', timeout=1)
+            r = get(f'http://localhost:{self.config.port}', timeout=1)
             return r.ok and r.content == b'qram'
-        wait_for(server_started, f'qram did not start on port {self.config.app.port}')
+        wait_for(server_started, f'qram did not start on port {self.config.port}')
         logger.info('▶▶▶ started')
 
     def __exit__(self, exc_type: Any, exc_value: Any, traceback: Any) -> None:  # noqa: ANN401
         # TODO: handle exceptions somehow?
         logger.info('◀◀◀ stopping webhook server ...')
-        r = post(f'http://localhost:{self.config.app.port}/stop')
+        r = post(f'http://localhost:{self.config.port}/stop')
         assert r.ok
         assert r.content == b'Goodbye.'
         self.join(self.timeout)

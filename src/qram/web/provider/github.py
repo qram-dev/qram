@@ -6,7 +6,7 @@ from typing import Any, Callable, cast
 import jwt
 from requests import Response, request
 
-from qram.config import Config
+from qram.config import AppConfig
 from qram.web.provider import Pr, ProviderApi, ProviderRepoApi
 
 
@@ -19,10 +19,10 @@ logger = getLogger(__name__)
 # Wrap everything into self-repairing objects and hope for the best.
 
 
-def github_api(cfg: Config) -> 'Github':
+def github_api(cfg: AppConfig) -> 'Github':
     '''Factory function providing a working and self-repairing instance of Github API
     '''
-    github = cfg.app.github
+    github = cfg.github
     assert github is not None, 'config have to be setup for github'
     def rejwt() -> str:
         jwt_payload = {
@@ -113,19 +113,19 @@ class Github(ProviderApi):
         return GithubRepo(self, owner, repo)
 
 
-    def configure_webhook(self, config: Config) -> None:
-        gh = config.app.github
+    def configure_webhook(self, config: AppConfig) -> None:
+        gh = config.github
         assert gh
         assert gh.webhook_url
         msg = f'github: app={gh.app_id} installation={gh.installation_id}: reconfigure webhook to '
         msg += gh.webhook_url
-        if config.app.hmac:
+        if config.hmac:
             msg += ' (with HMAC secret)'
         logger.info(msg)
         payload = dict(
             url=gh.webhook_url,
             content_type='json',
-            secret=config.app.hmac,
+            secret=config.hmac,
         )
         r = self._request('PATCH', 'app/hook/config', json=payload, use_jwt=True)
         if not r.ok:

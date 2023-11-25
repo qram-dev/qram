@@ -8,7 +8,7 @@ import pytest
 from pytest_bdd import given, parsers, scenarios, then, when
 
 from qram import flow
-from qram.config import Config
+from qram.config import RepoConfig
 from qram.formatter import BranchFormatter
 from qram.git import Git, Hash
 from qram.web.provider.github import Pr
@@ -37,7 +37,7 @@ class PrInfo:
         self.original = original
 
 class Context(SimpleNamespace):
-    config: Config
+    config: RepoConfig
     branches: BranchFormatter
     gh: GithubMock
     pr: dict[int, PrInfo]
@@ -52,7 +52,7 @@ def context(caplog: pytest.LogCaptureFixture) -> Context:
     caplog.handler.setFormatter(logging.Formatter(
         '{levelname:5} : {name:10} : {message}', style='{',
     ))
-    cfg = Config.construct()
+    cfg = RepoConfig.construct()
     return Context(
         config = cfg,
         branches = BranchFormatter(cfg),

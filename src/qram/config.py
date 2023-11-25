@@ -32,9 +32,15 @@ class _CfgBranching(BaseModel, extra='forbid'):
         return self
 
 
+<<<<<<< HEAD
 def read_from_file(x: str) -> str:
     '''config.yaml has X_file, which is path - but in the object itself we
     want X field to be string contents of said file.'''
+||||||| parent of f4e7b65 (split app config and repo config)
+def read_from_file(x: str) -> str:
+=======
+def file_contents(x: str) -> str:
+>>>>>>> f4e7b65 (split app config and repo config)
     p = Path(x)
     if not p or not p.is_file():
         raise ValueError(f'invalid file: {p.absolute()}')
@@ -47,18 +53,33 @@ class _CfgGithub(BaseModel, extra='forbid'):
     app_id: StrictStr
     installation_id: StrictStr
     pem: StrictStr = Field(alias='pem_file')
+<<<<<<< HEAD
     webhook_url: StrictStr | None = None
     @model_validator(mode='after')
     def read_pem_from_file(self) -> _CfgGithub:
         self.pem = read_from_file(self.pem)
         return self
+||||||| parent of f4e7b65 (split app config and repo config)
+    webhook_url: StrictStr | None
+    _: Any = validator('pem', allow_reuse=True)(read_from_file)
+=======
+    webhook_url: StrictStr | None
+    _: Any = validator('pem', allow_reuse=True)(file_contents)
+>>>>>>> f4e7b65 (split app config and repo config)
 
 class _CfgGitea(BaseModel, extra='forbid'):
     pass
 
+<<<<<<< HEAD
 class _CfgApp(BaseModel, extra='forbid'):
+||||||| parent of f4e7b65 (split app config and repo config)
+class _CfgApp(BaseModel, extra=Extra.forbid):
+=======
+class AppConfig(BaseModel, extra=Extra.forbid):
+>>>>>>> f4e7b65 (split app config and repo config)
     port: int = 8888
     hmac: StrictStr = Field('', alias='hmac_file')
+<<<<<<< HEAD
     github: _CfgGithub | None = None
     gitea: _CfgGitea | None = None
     @model_validator(mode='after')
@@ -67,6 +88,42 @@ class _CfgApp(BaseModel, extra='forbid'):
         if self.hmac:
             self.hmac = read_from_file(self.hmac)
         return self
+||||||| parent of f4e7b65 (split app config and repo config)
+    github: _CfgGithub | None
+    gitea: _CfgGitea | None
+    _validate_hmac: Any = validator('hmac', allow_reuse=True)(read_from_file)
+=======
+    github: _CfgGithub | None
+    gitea: _CfgGitea | None
+    _validate_hmac: Any = validator('hmac', allow_reuse=True)(file_contents)
+
+
+    @staticmethod
+    def github_config_from_env() -> AppConfig:
+        c = AppConfig.construct()
+        c.hmac = os.environ['QRAM_APP_HMAC']
+        pem = os.environ.get('QRAM_APP_GITHUB_PEM')
+        if pem is None:
+            pem = Path(os.environ['QRAM_APP_GITHUB_PEM_FILE']).read_text()
+        c.github = _CfgGithub.construct(
+            app_id = os.environ['QRAM_APP_GITHUB_APP_ID'],
+            installation_id = os.environ['QRAM_APP_GITHUB_INSTALLATION_ID'],
+            pem = pem.strip(),
+            webhook_url = os.environ['QRAM_WEBHOOK_URL'],
+        )
+        return c
+
+
+    @staticmethod
+    def read_from_file(config_file: Path=Path('qram-app.yml')) -> AppConfig:
+        if not config_file.exists():
+            raise FileNotFoundError(f'app config file {config_file.absolute()} does not exist')
+
+        with config_file.open() as f:
+            yy: dict[str, Any] = yaml.safe_load(f)
+        return AppConfig.parse_obj(yy)
+
+>>>>>>> f4e7b65 (split app config and repo config)
 
     @model_validator(mode='before')
     @classmethod
@@ -91,20 +148,31 @@ class _CfgApp(BaseModel, extra='forbid'):
         return '?'
 
 
+<<<<<<< HEAD
 class Config(BaseModel, extra='forbid'):
     app: _CfgApp = _CfgApp.model_construct()
     branching: _CfgBranching = _CfgBranching.model_construct()
     merge_template: _CfgMergeTemplate = _CfgMergeTemplate.model_construct()
+||||||| parent of f4e7b65 (split app config and repo config)
+class Config(BaseModel, extra=Extra.forbid):
+    app: _CfgApp = _CfgApp.construct()
+    branching: _CfgBranching = _CfgBranching.construct()
+    merge_template: _CfgMergeTemplate = _CfgMergeTemplate.construct()
+=======
+class RepoConfig(BaseModel, extra=Extra.forbid):
+    branching: _CfgBranching = _CfgBranching.construct()
+    merge_template: _CfgMergeTemplate = _CfgMergeTemplate.construct()
+>>>>>>> f4e7b65 (split app config and repo config)
 
 
     @staticmethod
-    def read_from_repo() -> Config:
-        config_file = Path('qram.yml').absolute()
+    def read_from_file(config_file: Path=Path('qram.yml')) -> RepoConfig:
         if not config_file.exists():
-            raise FileNotFoundError(f'config file {config_file} does not exist')
+            raise FileNotFoundError(f'repo config file {config_file.absolute()} does not exist')
 
-        with Path(config_file).open() as f:
+        with config_file.open() as f:
             yy: dict[str, Any] = yaml.safe_load(f)
+<<<<<<< HEAD
         return Config.model_validate(yy)
 
 
@@ -122,3 +190,24 @@ class Config(BaseModel, extra='forbid'):
             webhook_url = os.environ['QRAM_WEBHOOK_URL'],
         )
         return c
+||||||| parent of f4e7b65 (split app config and repo config)
+        return Config.parse_obj(yy)
+
+
+    @staticmethod
+    def github_config_from_env() -> Config:
+        c = Config.construct()
+        c.app.hmac = os.environ['QRAM_APP_HMAC']
+        pem = os.environ.get('QRAM_APP_GITHUB_PEM')
+        if pem is None:
+            pem = Path(os.environ['QRAM_APP_GITHUB_PEM_FILE']).read_text()
+        c.app.github = _CfgGithub.construct(
+            app_id = os.environ['QRAM_APP_GITHUB_APP_ID'],
+            installation_id = os.environ['QRAM_APP_GITHUB_INSTALLATION_ID'],
+            pem = pem.strip(),
+            webhook_url = os.environ['QRAM_WEBHOOK_URL'],
+        )
+        return c
+=======
+        return RepoConfig.parse_obj(yy)
+>>>>>>> f4e7b65 (split app config and repo config)
