@@ -72,6 +72,7 @@ class StopHandler(RequestHandler):
         self.queue = queue
 
     def post(self) -> None:
+        logger.info('Putting STOP event to que.')
         self.queue.put_nowait(events.StopEvent().caused_by('WEB/stop'))
         self.write('Goodbye.')
 
