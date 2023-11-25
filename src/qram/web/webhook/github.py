@@ -8,8 +8,10 @@ from meiga import Failure, Result, Success
 from tornado.escape import json_decode
 from tornado.httputil import HTTPServerRequest
 
+from qram import flow
+from qram.config import RepoConfig
 from qram.errors import ExpectedError
-from qram.git import Git
+from qram.git import Git, Hash
 from qram.globals import WORKDIR
 from qram.web.webhook.base import EventHandler, Webhook
 from qram.web.events import (
@@ -72,14 +74,15 @@ class GithubWebhook(Webhook):
             logger.info(f'enqueued: {event}')
             return Success(True)
 
-        # FIXME: is completed check
-        if is_completed_workflow(j):
-            wfr = j['workflow_run']
-            logger.info(f'this is completed workflow - {wfr["html_url"]}')
+        if is_completed_checksuite(j):
+            cs = j['check_suite']
+            logger.info(f'this is completed check suite - {cs["url"]}')
+            # TODO: check if cs['head_branch'] matches the queue branch, to avoid extra re-checks
             event = CheckCompletedEvent(
                 repo=j['repository']['full_name'],
-                commit=j['workflow_run']['head_sha'],
-            ).caused_by(f'WEB/webhook WORKFLOW {wfr["id"]}')
+                commit=Hash(cs['head_sha']),
+                good=(cs['conclusion'] == 'success')
+            ).caused_by(f'WEB/webhook CHECKSUITE {cs["id"]}')
             self.queue.put_nowait(event)
             logger.info(f'enqueued: {event}')
             return Success(True)
@@ -143,6 +146,16 @@ class GithubHandler(EventHandler):
         assert '/' in owner_repo
         comment_id = event.number
 
+        logger.info(f'processing {owner_repo} #{event.pr} comment {comment_id}')
+
+        git = Git(WORKDIR / event.repo)
+        # always fetch to ensure branches are updated
+        git.fetch()
+        pr = self.api.repo(*owner_repo.split('/')).get_pr(event.pr)
+        with git.switched_branch(pr.branch_head, f'origin/{pr.branch_head}', anew=True):
+            cfg = RepoConfig.read_from_file(WORKDIR / event.repo / 'qram.yml')
+        flow.prepare(git, event.pr, self.api.repo(*owner_repo.split('/')), cfg)
+
         logger.info(f'reacting "🚀" to comment {comment_id} in {owner_repo}')
         r = self.api.post(
             f'/repos/{owner_repo}/issues/comments/{comment_id}/reactions',
@@ -158,8 +171,24 @@ class GithubHandler(EventHandler):
 
 
     def handle_check_complete(self, event: 'CheckCompletedEvent') -> Result[bool, ExpectedError]:
-        logger.info('some day...')
-        return Success(True)
+        git = Git(WORKDIR / event.repo)
+        # always fetch to ensure branches are updated
+        git.fetch()
+        with git.switched_branch(event.commit):
+            cfg = RepoConfig.read_from_file(WORKDIR / event.repo / 'qram.yml')
+        logger.info(f'Looking for QRAM merge for commit {event.commit}')
+        match flow.find_pr_matching_to_commit(Hash(event.commit), git, cfg):
+            case Success(int()) as s:
+                pr = s.value
+                logger.info(f'Detected PR #{pr} - mark as good=${event.good}')
+                flow.mark_merge(git, pr, cfg, ci_ok=event.good)
+                flow.shake_stage(git, self.api.repo(*event.repo.split('/')), cfg)
+                return Success(True)
+            case Failure(flow.NoMergesAtCommitError()) as e:
+                logger.info('No PR for this commit.')
+                return Success(False)
+            case _ as e:
+                raise AssertionError(f'unknown result: {e}')
 
 
 def is_created_pr_comment(j: dict[str, Any]) -> bool:
@@ -170,19 +199,11 @@ def is_created_pr_comment(j: dict[str, Any]) -> bool:
     )
 
 
-def is_completed_workflow(j: dict[str, Any]) -> bool:
+def is_completed_checksuite(j: dict[str, Any]) -> bool:
     return (
         j.get('action') == 'completed'
-        and 'workflow_run' in j
+        and 'check_suite' in j
     )
-    # shall be checked by
-    # : r = get('/repos/{owner}/{repo}/commits/{ref}/check-suites)
-    # : all(x['conclusion'] == 'success' for x in r.json()['check_suites'])
 
 def is_ping_event(j: dict[str, Any]) -> bool:
     return j.get('ping') is True
-
-
-def is_check_completed(j: dict[str, Any]) -> bool:
-    # FIXME: find out what checks look like
-    return False

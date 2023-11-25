@@ -43,6 +43,9 @@ class Git:
         check_call(self.repo, ['add', x])
         check_call(self.repo, ['commit', '-m', x])
 
+    def fetch(self) -> None:
+        check_call(self.repo, ['fetch'])
+
     def push(self, x: str, *, force: bool=True) -> None:
         check_call(self.repo, ['push', '-u', 'origin', x, *(['--force'] if force else [])])
 
