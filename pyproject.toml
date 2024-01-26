@@ -4,7 +4,8 @@
     dependencies = [
         'jinja2',
         'meiga',
-        'pydantic',
+        # 2 did breaking changes and has APIs not available in 1
+        'pydantic > 2',
         'pyjwt[crypto]',
         'pyyaml',
         'requests',
