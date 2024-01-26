@@ -40,7 +40,7 @@ class _CfgGithub(BaseModel, extra=Extra.forbid):
     app_id: StrictStr
     installation_id: StrictStr
     pem: StrictStr = Field(alias='pem_file')
-    webhook_url: StrictStr | None
+    webhook_url: StrictStr | None = None
     _: Any = validator('pem', allow_reuse=True)(read_from_file)
 
 class _CfgGitea(BaseModel, extra=Extra.forbid):
@@ -49,8 +49,8 @@ class _CfgGitea(BaseModel, extra=Extra.forbid):
 class _CfgApp(BaseModel, extra=Extra.forbid):
     port: int = 8888
     hmac: StrictStr = Field('', alias='hmac_file')
-    github: _CfgGithub | None
-    gitea: _CfgGitea | None
+    github: _CfgGithub | None = None
+    gitea: _CfgGitea | None = None
     _validate_hmac: Any = validator('hmac', allow_reuse=True)(read_from_file)
 
     @root_validator
