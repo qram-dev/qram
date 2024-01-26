@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any
 
 import yaml
-from pydantic import BaseModel, Field, StrictStr, root_validator, validator
+from pydantic import BaseModel, Field, StrictStr, model_validator
 
 
 logger = logging.getLogger(__name__)
@@ -24,10 +24,17 @@ class _CfgMergeTemplate(BaseModel, extra='forbid'):
 class _CfgBranching(BaseModel, extra='forbid'):
     target_branch: StrictStr = 'main'
     branch_folder: StrictStr = 'mq'
-    _: Any = validator('branch_folder')(lambda bf: bf.strip('/'))
+
+    @model_validator(mode='after')
+    def strip_trailing_slash(self) -> _CfgBranching:
+        '''to avoid accidental //'s in paths'''
+        self.branch_folder = self.branch_folder.strip('/')
+        return self
 
 
 def read_from_file(x: str) -> str:
+    '''config.yaml has X_file, which is path - but in the object itself we
+    want X field to be string contents of said file.'''
     p = Path(x)
     if not p or not p.is_file():
         raise ValueError(f'invalid file: {p.absolute()}')
@@ -41,7 +48,10 @@ class _CfgGithub(BaseModel, extra='forbid'):
     installation_id: StrictStr
     pem: StrictStr = Field(alias='pem_file')
     webhook_url: StrictStr | None = None
-    _: Any = validator('pem', allow_reuse=True)(read_from_file)
+    @model_validator(mode='after')
+    def read_pem_from_file(self) -> _CfgGithub:
+        self.pem = read_from_file(self.pem)
+        return self
 
 class _CfgGitea(BaseModel, extra='forbid'):
     pass
@@ -51,18 +61,24 @@ class _CfgApp(BaseModel, extra='forbid'):
     hmac: StrictStr = Field('', alias='hmac_file')
     github: _CfgGithub | None = None
     gitea: _CfgGitea | None = None
-    _validate_hmac: Any = validator('hmac', allow_reuse=True)(read_from_file)
+    @model_validator(mode='after')
+    def read_hmac_from_file(self) -> _CfgGithub:
+        # validator is called always for the whole object, and empty hmac is a valid situation
+        if self.hmac:
+            self.hmac = read_from_file(self.hmac)
+        return self
 
-    @root_validator
+    @model_validator(mode='before')
     @classmethod
-    def validate_providers(cls, field_values: dict[str, Any]) -> dict[str, Any]:
+    def validate_providers(cls, field_values: Any) -> dict[str, Any]:
+        assert isinstance(field_values, dict), 'can validator data be anything else?!'
         providers = ('gitea', 'github')
         present_providers = [field_values.get(p) is not None for p in providers]
         providers_string = ', '.join(f'"{p}"' for p in providers)
         if not any(present_providers):
-            raise ValueError(f'one of {providers_string} has to be specified')
+            raise ValueError(f'one of {providers_string} fields has to be specified')
         if len([p for p in present_providers if p]) > 1:
-            raise ValueError(f'only one of {providers_string} must be specified')
+            raise ValueError(f'only one of {providers_string} fields must be specified')
         return field_values
 
 
