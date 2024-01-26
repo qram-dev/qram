@@ -36,8 +36,8 @@ def test_unsupported_options() -> None:
         omg=0,
     )
     with pytest.raises(ValidationError) as e:
-        Config.parse_obj(obj)
-    e.match('extra fields not permitted')
+        Config.model_validate(obj)
+    e.match('Extra inputs are not permitted')
 
     obj = dict(
         merge_template=dict(
@@ -45,8 +45,8 @@ def test_unsupported_options() -> None:
         ),
     )
     with pytest.raises(ValidationError) as e:
-        Config.parse_obj(obj)
-    e.match('extra fields not permitted')
+        Config.model_validate(obj)
+    e.match('Extra inputs are not permitted')
 
     obj = dict(
         app=dict(
@@ -56,29 +56,32 @@ def test_unsupported_options() -> None:
         ),
     )
     with pytest.raises(ValidationError) as e:
-        Config.parse_obj(obj)
-    e.match('extra fields not permitted')
+        Config.model_validate(obj)
+    e.match('Extra inputs are not permitted')
 
 
 def test_no_secret_file() -> None:
     obj: Any = dict(
         app=dict(
             hmac_file='nosuchfile.txt',
+            gitea=dict(),
         ),
     )
     with pytest.raises(ValidationError) as e:
-        Config.parse_obj(obj)
+        Config.model_validate(obj)
     e.match('invalid file.*nosuchfile.txt')
 
     obj = dict(
         app=dict(
             github=dict(
+                app_id='1',
+                installation_id='2',
                 pem_file='nosuchfile.txt',
             ),
         ),
     )
     with pytest.raises(ValidationError) as e:
-        Config.parse_obj(obj)
+        Config.model_validate(obj)
     e.match('invalid file.*nosuchfile.txt')
 
 
@@ -88,21 +91,24 @@ def test_empty_secret_file(chtmp: Path) -> None:
     obj: Any = dict(
         app=dict(
             hmac_file='empty.txt',
+            gitea=dict(),
         ),
     )
     with pytest.raises(ValidationError) as e:
-        Config.parse_obj(obj)
+        Config.model_validate(obj)
     e.match('file is empty')
 
     obj = dict(
         app=dict(
             github=dict(
+                app_id='1',
+                installation_id='2',
                 pem_file='empty.txt',
             ),
         ),
     )
     with pytest.raises(ValidationError) as e:
-        Config.parse_obj(obj)
+        Config.model_validate(obj)
     e.match('file is empty')
 
 
@@ -112,7 +118,7 @@ def test_invalid_provider() -> None:
         ),
     )
     with pytest.raises(ValidationError) as e:
-        Config.parse_obj(obj)
+        Config.model_validate(obj)
     e.match('one of.*has to be specified')
 
     obj = dict(
@@ -122,7 +128,7 @@ def test_invalid_provider() -> None:
         ),
     )
     with pytest.raises(ValidationError) as e:
-        Config.parse_obj(obj)
+        Config.model_validate(obj)
     e.match('only one of.*must be specified')
 
 
