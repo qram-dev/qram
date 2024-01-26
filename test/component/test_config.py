@@ -36,7 +36,7 @@ def test_unsupported_options() -> None:
         omg=0,
     )
     with pytest.raises(ValidationError) as e:
-        Config.parse_obj(obj)
+        Config.model_validate(obj)
     e.match('extra fields not permitted')
 
     obj = dict(
@@ -45,7 +45,7 @@ def test_unsupported_options() -> None:
         ),
     )
     with pytest.raises(ValidationError) as e:
-        Config.parse_obj(obj)
+        Config.model_validate(obj)
     e.match('extra fields not permitted')
 
     obj = dict(
@@ -56,7 +56,7 @@ def test_unsupported_options() -> None:
         ),
     )
     with pytest.raises(ValidationError) as e:
-        Config.parse_obj(obj)
+        Config.model_validate(obj)
     e.match('extra fields not permitted')
 
 
@@ -67,7 +67,7 @@ def test_no_secret_file() -> None:
         ),
     )
     with pytest.raises(ValidationError) as e:
-        Config.parse_obj(obj)
+        Config.model_validate(obj)
     e.match('invalid file.*nosuchfile.txt')
 
     obj = dict(
@@ -78,7 +78,7 @@ def test_no_secret_file() -> None:
         ),
     )
     with pytest.raises(ValidationError) as e:
-        Config.parse_obj(obj)
+        Config.model_validate(obj)
     e.match('invalid file.*nosuchfile.txt')
 
 
@@ -91,7 +91,7 @@ def test_empty_secret_file(chtmp: Path) -> None:
         ),
     )
     with pytest.raises(ValidationError) as e:
-        Config.parse_obj(obj)
+        Config.model_validate(obj)
     e.match('file is empty')
 
     obj = dict(
@@ -102,7 +102,7 @@ def test_empty_secret_file(chtmp: Path) -> None:
         ),
     )
     with pytest.raises(ValidationError) as e:
-        Config.parse_obj(obj)
+        Config.model_validate(obj)
     e.match('file is empty')
 
 
@@ -112,7 +112,7 @@ def test_invalid_provider() -> None:
         ),
     )
     with pytest.raises(ValidationError) as e:
-        Config.parse_obj(obj)
+        Config.model_validate(obj)
     e.match('one of.*has to be specified')
 
     obj = dict(
@@ -122,7 +122,7 @@ def test_invalid_provider() -> None:
         ),
     )
     with pytest.raises(ValidationError) as e:
-        Config.parse_obj(obj)
+        Config.model_validate(obj)
     e.match('only one of.*must be specified')
 
 

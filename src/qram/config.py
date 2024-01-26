@@ -6,22 +6,22 @@ from pathlib import Path
 from typing import Any
 
 import yaml
-from pydantic import BaseModel, Extra, Field, StrictStr, root_validator, validator
+from pydantic import BaseModel, Field, StrictStr, root_validator, validator
 
 
 logger = logging.getLogger(__name__)
 
-class _CfgAuthor(BaseModel, extra=Extra.forbid):
+class _CfgAuthor(BaseModel, extra='forbid'):
     name: StrictStr = 'qram'
     email: StrictStr = 'qram@no.email'
 
-class _CfgMergeTemplate(BaseModel, extra=Extra.forbid):
+class _CfgMergeTemplate(BaseModel, extra='forbid'):
     author: _CfgAuthor = _CfgAuthor()
     jinja: StrictStr = '''#{{pr.number}}: {{pr.title}}
 
 {{pr.body}}'''
 
-class _CfgBranching(BaseModel, extra=Extra.forbid):
+class _CfgBranching(BaseModel, extra='forbid'):
     target_branch: StrictStr = 'main'
     branch_folder: StrictStr = 'mq'
     _: Any = validator('branch_folder')(lambda bf: bf.strip('/'))
@@ -36,17 +36,17 @@ def read_from_file(x: str) -> str:
         raise ValueError(f'file is empty: {p.absolute()}')
     return c
 
-class _CfgGithub(BaseModel, extra=Extra.forbid):
+class _CfgGithub(BaseModel, extra='forbid'):
     app_id: StrictStr
     installation_id: StrictStr
     pem: StrictStr = Field(alias='pem_file')
     webhook_url: StrictStr | None = None
     _: Any = validator('pem', allow_reuse=True)(read_from_file)
 
-class _CfgGitea(BaseModel, extra=Extra.forbid):
+class _CfgGitea(BaseModel, extra='forbid'):
     pass
 
-class _CfgApp(BaseModel, extra=Extra.forbid):
+class _CfgApp(BaseModel, extra='forbid'):
     port: int = 8888
     hmac: StrictStr = Field('', alias='hmac_file')
     github: _CfgGithub | None = None
@@ -75,10 +75,10 @@ class _CfgApp(BaseModel, extra=Extra.forbid):
         return '?'
 
 
-class Config(BaseModel, extra=Extra.forbid):
-    app: _CfgApp = _CfgApp.construct()
-    branching: _CfgBranching = _CfgBranching.construct()
-    merge_template: _CfgMergeTemplate = _CfgMergeTemplate.construct()
+class Config(BaseModel, extra='forbid'):
+    app: _CfgApp = _CfgApp.model_construct()
+    branching: _CfgBranching = _CfgBranching.model_construct()
+    merge_template: _CfgMergeTemplate = _CfgMergeTemplate.model_construct()
 
 
     @staticmethod
@@ -89,17 +89,17 @@ class Config(BaseModel, extra=Extra.forbid):
 
         with Path(config_file).open() as f:
             yy: dict[str, Any] = yaml.safe_load(f)
-        return Config.parse_obj(yy)
+        return Config.model_validate(yy)
 
 
     @staticmethod
     def github_config_from_env() -> Config:
-        c = Config.construct()
+        c = Config.model_construct()
         c.app.hmac = os.environ['QRAM_APP_HMAC']
         pem = os.environ.get('QRAM_APP_GITHUB_PEM')
         if pem is None:
             pem = Path(os.environ['QRAM_APP_GITHUB_PEM_FILE']).read_text()
-        c.app.github = _CfgGithub.construct(
+        c.app.github = _CfgGithub.model_construct(
             app_id = os.environ['QRAM_APP_GITHUB_APP_ID'],
             installation_id = os.environ['QRAM_APP_GITHUB_INSTALLATION_ID'],
             pem = pem.strip(),
