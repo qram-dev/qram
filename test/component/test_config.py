@@ -37,7 +37,7 @@ def test_unsupported_options() -> None:
     )
     with pytest.raises(ValidationError) as e:
         Config.model_validate(obj)
-    e.match('extra fields not permitted')
+    e.match('Extra inputs are not permitted')
 
     obj = dict(
         merge_template=dict(
@@ -46,7 +46,7 @@ def test_unsupported_options() -> None:
     )
     with pytest.raises(ValidationError) as e:
         Config.model_validate(obj)
-    e.match('extra fields not permitted')
+    e.match('Extra inputs are not permitted')
 
     obj = dict(
         app=dict(
@@ -57,13 +57,14 @@ def test_unsupported_options() -> None:
     )
     with pytest.raises(ValidationError) as e:
         Config.model_validate(obj)
-    e.match('extra fields not permitted')
+    e.match('Extra inputs are not permitted')
 
 
 def test_no_secret_file() -> None:
     obj: Any = dict(
         app=dict(
             hmac_file='nosuchfile.txt',
+            gitea=dict(),
         ),
     )
     with pytest.raises(ValidationError) as e:
@@ -73,6 +74,8 @@ def test_no_secret_file() -> None:
     obj = dict(
         app=dict(
             github=dict(
+                app_id='1',
+                installation_id='2',
                 pem_file='nosuchfile.txt',
             ),
         ),
@@ -88,6 +91,7 @@ def test_empty_secret_file(chtmp: Path) -> None:
     obj: Any = dict(
         app=dict(
             hmac_file='empty.txt',
+            gitea=dict(),
         ),
     )
     with pytest.raises(ValidationError) as e:
@@ -97,6 +101,8 @@ def test_empty_secret_file(chtmp: Path) -> None:
     obj = dict(
         app=dict(
             github=dict(
+                app_id='1',
+                installation_id='2',
                 pem_file='empty.txt',
             ),
         ),
