@@ -6,7 +6,7 @@ from dataclasses import dataclass
 
 from dotenv import load_dotenv
 
-from qram.config import Config
+from qram.config import AppConfig
 from qram.web.provider.github import github_api
 
 
@@ -27,7 +27,7 @@ def main(args: Args) -> None:
     logging.basicConfig(level=logging.DEBUG)
     load_dotenv(verbose=True)
     if args.github:
-        cfg = Config.github_config_from_env()
+        cfg = AppConfig.github_config_from_env()
         github_api(cfg).configure_webhook(cfg)
 
 

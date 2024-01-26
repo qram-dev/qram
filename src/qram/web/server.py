@@ -4,7 +4,7 @@ from meiga import Failure, Success
 from tornado.ioloop import IOLoop
 from tornado.web import Application, RequestHandler
 
-from qram.config import Config
+from qram.config import AppConfig
 from qram.errors import ExpectedError
 from qram.web import events
 from qram.web.provider.github import github_api
@@ -76,36 +76,36 @@ class StopHandler(RequestHandler):
         self.write('Goodbye.')
 
 
-async def make_server(config: Config, *, debug: bool, provide_stop: bool,
+async def make_server(config: AppConfig, *, debug: bool, provide_stop: bool,
                       initialize_repos: bool) -> None:
-    if config.app.hmac:
+    if config.hmac:
         logger.info('HMAC secret provided, incoming requests will be verified')
     queue = events.EventQueue()
     await queue.put(events.PingEvent().caused_by('initialization'))
     if initialize_repos:
         await queue.put(events.InitializeEvent().caused_by('initialization'))
 
-    match config.app.provider:
+    match config.provider:
         case 'github':
-            assert config.app.github is not None
+            assert config.github is not None
             logger.info( '    PROVIDER: GITHUB')
-            logger.info(f'         APP: {config.app.github.app_id}')
-            logger.info(f'INSTALLATION: {config.app.github.installation_id}')
+            logger.info(f'         APP: {config.github.app_id}')
+            logger.info(f'INSTALLATION: {config.github.installation_id}')
             webhook = GithubWebhook(queue)
             handler = GithubHandler(github_api(config))
         case _:
-            raise RuntimeError(f'unexpected provider: {config.app.provider}')
+            raise RuntimeError(f'unexpected provider: {config.provider}')
 
     app = Application([
         ('/', MainHandler),
         ('/webhook', WebhookHandler, dict(
-            token=config.app.hmac, webhook=webhook, debug=debug,
+            token=config.hmac, webhook=webhook, debug=debug,
         )),
         *([('/stop', StopHandler, dict(queue=queue))] if provide_stop else []),
     ], debug=debug)
 
-    server = app.listen(config.app.port)
-    logger.info(f'serving on port {config.app.port}')
+    server = app.listen(config.port)
+    logger.info(f'serving on port {config.port}')
 
     async for event in queue:
         await IOLoop.current().run_in_executor(None, process, event, handler)

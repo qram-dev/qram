@@ -1,14 +1,14 @@
 from functools import cache
 
-from qram.config import Config
+from qram.config import RepoConfig
 
 
 class BranchFormatter:
-    _config: Config
+    _config: RepoConfig
     queue: str
     target: str
 
-    def __init__(self, config: Config) -> None:
+    def __init__(self, config: RepoConfig) -> None:
         self._config = config
         self.queue = f'{self._config.branching.branch_folder}/queue'
         self.target = config.branching.target_branch
@@ -27,9 +27,9 @@ class PrFormatter:
     merge: str
     source: str
     bad: str
-    _config: Config
+    _config: RepoConfig
 
-    def __init__(self, pr: int, config: Config) -> None:
+    def __init__(self, pr: int, config: RepoConfig) -> None:
         self._config = config
         self.rebase = f'{config.branching.branch_folder}/pr{pr}/{PrFormatter.POSTFIX_REBASe}'
         self.merge = f'{config.branching.branch_folder}/pr{pr}/{PrFormatter.POSTFIX_MERGE}'

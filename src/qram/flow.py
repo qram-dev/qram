@@ -7,7 +7,7 @@ from typing import TypeVar
 from jinja2 import Environment
 
 from qram.git import Git, Hash
-from qram.config import Config
+from qram.config import RepoConfig
 from qram.formatter import BranchFormatter, PrFormatter
 from qram.web.provider import Pr, ProviderRepoApi
 
@@ -17,7 +17,7 @@ CommitAndBranches = tuple[Hash, list[str]]
 logger = getLogger(__name__)
 
 
-def _merge(git: Git, pr_num: int, gh: ProviderRepoApi, config: Config) -> None:
+def _merge(git: Git, pr_num: int, gh: ProviderRepoApi, config: RepoConfig) -> None:
     logger.info(f'merge started for #{pr_num}')
     pr = gh.get_pr(pr_num)
     branches_global = BranchFormatter(config)
@@ -54,7 +54,7 @@ def _merge(git: Git, pr_num: int, gh: ProviderRepoApi, config: Config) -> None:
     logger.info(f'merge completed for #{pr_num}')
 
 
-def prepare(git: Git, pr_num: int, gh: ProviderRepoApi, config: Config) -> None:
+def prepare(git: Git, pr_num: int, gh: ProviderRepoApi, config: RepoConfig) -> None:
     logger.info(f'stage started for #{pr_num}')
     pr = gh.get_pr(pr_num)
     branches_global = BranchFormatter(config)
@@ -104,7 +104,7 @@ def prepare(git: Git, pr_num: int, gh: ProviderRepoApi, config: Config) -> None:
     logger.info(f'stage completed for #{pr_num}')
 
 
-def mark_merge(git: Git, commit: Hash, config: Config, ci_ok: bool) -> None:
+def mark_merge(git: Git, commit: Hash, config: RepoConfig, ci_ok: bool) -> None:
     pr_num = extract_pr_from_branch_list(git.branches_at_ref(commit), config)
     logger.info(f'mark started for #{pr_num}')
     branches_pr = BranchFormatter(config).pr(pr_num)
@@ -121,7 +121,7 @@ def mark_merge(git: Git, commit: Hash, config: Config, ci_ok: bool) -> None:
     logger.info(f'mark completed for #{pr_num}')
 
 
-def shake_stage(git: Git, gh: ProviderRepoApi, config: Config) -> None:
+def shake_stage(git: Git, gh: ProviderRepoApi, config: RepoConfig) -> None:
     logger.info('shake started')
     branches_global = BranchFormatter(config)
     stage = list(reversed(list(
@@ -157,7 +157,7 @@ def shake_stage(git: Git, gh: ProviderRepoApi, config: Config) -> None:
 
 
 def _rebase_queue_onto(git: Git, target: str, remaining: Iterable[CommitAndBranches],
-                       gh: ProviderRepoApi, config: Config) -> None:
+                       gh: ProviderRepoApi, config: RepoConfig) -> None:
     logger.info('queue rebase started')
     branches_global = BranchFormatter(config)
     git.new_branch(branches_global.queue, target, force=True)
@@ -178,7 +178,7 @@ def _rebase_queue_onto(git: Git, target: str, remaining: Iterable[CommitAndBranc
     logger.info('queue rebase completed')
 
 
-def format_merge_message(pr: Pr, config: Config) -> str:
+def format_merge_message(pr: Pr, config: RepoConfig) -> str:
     e = Environment(autoescape=True)
     return e.from_string(
         source=config.merge_template.jinja,
@@ -210,7 +210,7 @@ def collect_staging(git: Git, staging_branch: str, target_branch: str) \
             yield commit, branches
 
 
-def extract_pr_from_merge(branch: str, config: Config) -> int:
+def extract_pr_from_merge(branch: str, config: RepoConfig) -> int:
     prefix = config.branching.branch_folder
     postfix = PrFormatter.POSTFIX_MERGE
     regex = re.compile(f'{prefix}/pr(\\d+)/({postfix})')
@@ -219,7 +219,7 @@ def extract_pr_from_merge(branch: str, config: Config) -> int:
     return int(m.group(1))
 
 
-def extract_pr_from_branch_list(branches: list[str], config: Config) -> int:
+def extract_pr_from_branch_list(branches: list[str], config: RepoConfig) -> int:
     for b in branches:
         if b.endswith(PrFormatter.POSTFIX_MERGE):
             return extract_pr_from_merge(b, config)
