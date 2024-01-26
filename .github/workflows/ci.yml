@@ -82,16 +82,20 @@ jobs:
       with:
         python-version: "3.11"
     - run: |
+        set -ex
         python -m pip install --upgrade pip
         pip install -e .[dev]
 
     - name: download ngrok
       run: |
+        set -ex
         wget https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-linux-amd64.tgz
         tar -xf ngrok-v3-stable-linux-amd64.tgz
         chmod +x ngrok
+        ./ ngrok config add-authtoken ${{ secrets.NGROK_AUTHTOKEN }}
     - name: system tests (B)
       run: |
+        set -ex
         ./ngrok http 8888 &
         sleep 5
         URL=$(scripts/ngrok-public-url.py)
