@@ -83,7 +83,13 @@ class Git:
               committer_name: str, committer_email: str) -> None:
         # FIXME: needs rollback if something fails
         # plain `git merge` does not allow specifying author, so use --no-commit + `git commit`
-        check_call(self.repo, ['merge', what, '--no-ff', '--no-commit'])
+        check_call(self.repo, [
+            '-c', f'user.name={committer_name}',
+            '-c', f'user.email={committer_email}',
+            'merge', what,
+            '--no-ff',
+            '--no-commit',
+        ])
         check_call(self.repo, [
             '-c', f'user.name={committer_name}',
             '-c', f'user.email={committer_email}',
