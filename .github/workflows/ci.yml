@@ -31,6 +31,15 @@ jobs:
     - name: lint with ruff
       run: ruff src
 
+    # need this to detect cases where git commands require user and would fail without one
+    - name: wipe git user config
+      run: |
+        set -ex
+        git config user.name
+        git config user.name ""
+        git config user.email
+        git config user.email ""
+
     - name: unit tests
       run: |
         pytest test/unit/ test/component/ --cov --cov-report xml
