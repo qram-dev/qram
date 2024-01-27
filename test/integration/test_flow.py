@@ -8,10 +8,11 @@ import pytest
 from pytest_bdd import given, parsers, scenarios, then, when
 
 from qram import flow
-from qram.config import Config
+from qram.config import RepoConfig
 from qram.formatter import BranchFormatter
-from qram.git import Git, Hash
-from qram.web.provider.github import Pr
+from qram.git import Git
+from qram.types import Hash
+from qram.web.provider import Pr
 
 from test.integration import DataTable, datatable, str2bool
 from test.integration.mocks import GithubMock
@@ -37,7 +38,7 @@ class PrInfo:
         self.original = original
 
 class Context(SimpleNamespace):
-    config: Config
+    config: RepoConfig
     branches: BranchFormatter
     gh: GithubMock
     pr: dict[int, PrInfo]
@@ -52,7 +53,7 @@ def context(caplog: pytest.LogCaptureFixture) -> Context:
     caplog.handler.setFormatter(logging.Formatter(
         '{levelname:5} : {name:10} : {message}', style='{',
     ))
-    cfg = Config.construct()
+    cfg = RepoConfig.model_construct()
     return Context(
         config = cfg,
         branches = BranchFormatter(cfg),
@@ -156,8 +157,7 @@ def _(context: Context, git: Git, num: int, state: str) -> None:
         ok = False
     else:
         raise ValueError(f'Unknown state: `{state}`')
-    merge_hash = calculate_hash(git, 'merge', context.branches, context.pr[num])
-    flow.mark_merge(git, merge_hash, context.config, ok)
+    flow.mark_merge(git, num, context.config, ci_ok=ok)
 
 
 @then(parsers.parse("PR '{num:d}' cannot be merged yet"))

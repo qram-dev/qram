@@ -5,19 +5,19 @@ from logging import getLogger
 from typing import TypeVar
 
 from jinja2 import Environment
+from meiga import Error, Failure, Result, Success
 
-from qram.git import Git, Hash
-from qram.config import Config
+from qram.config import RepoConfig
 from qram.formatter import BranchFormatter, PrFormatter
-from qram.web.provider import Pr, ProviderRepoApi
+from qram.git import Git
+from qram.types import CommitAndBranches, Hash
+from qram.web.provider import ProviderRepoApi, Pr
 
-
-CommitAndBranches = tuple[Hash, list[str]]
 
 logger = getLogger(__name__)
 
 
-def _merge(git: Git, pr_num: int, gh: ProviderRepoApi, config: Config) -> None:
+def _merge(git: Git, pr_num: int, gh: ProviderRepoApi, config: RepoConfig) -> None:
     logger.info(f'merge started for #{pr_num}')
     pr = gh.get_pr(pr_num)
     branches_global = BranchFormatter(config)
@@ -54,7 +54,7 @@ def _merge(git: Git, pr_num: int, gh: ProviderRepoApi, config: Config) -> None:
     logger.info(f'merge completed for #{pr_num}')
 
 
-def prepare(git: Git, pr_num: int, gh: ProviderRepoApi, config: Config) -> None:
+def prepare(git: Git, pr_num: int, gh: ProviderRepoApi, config: RepoConfig) -> None:
     logger.info(f'stage started for #{pr_num}')
     pr = gh.get_pr(pr_num)
     branches_global = BranchFormatter(config)
@@ -104,8 +104,7 @@ def prepare(git: Git, pr_num: int, gh: ProviderRepoApi, config: Config) -> None:
     logger.info(f'stage completed for #{pr_num}')
 
 
-def mark_merge(git: Git, commit: Hash, config: Config, ci_ok: bool) -> None:
-    pr_num = extract_pr_from_branch_list(git.branches_at_ref(commit), config)
+def mark_merge(git: Git, pr_num: int, config: RepoConfig, *, ci_ok: bool) -> None:
     logger.info(f'mark started for #{pr_num}')
     branches_pr = BranchFormatter(config).pr(pr_num)
     if ci_ok:
@@ -114,22 +113,29 @@ def mark_merge(git: Git, commit: Hash, config: Config, ci_ok: bool) -> None:
     else:
         add = branches_pr.bad
         remove = branches_pr.good
-    # git.check_call(['branch', '-f', add, branches.merge])
     git.new_branch(add, branches_pr.merge, force=True)
     if git.branch_exists(remove):
         git.delete_branch(remove, force=True)
     logger.info(f'mark completed for #{pr_num}')
 
 
-def shake_stage(git: Git, gh: ProviderRepoApi, config: Config) -> None:
+def shake_stage(git: Git, gh: ProviderRepoApi, config: RepoConfig) -> None:
     logger.info('shake started')
     branches_global = BranchFormatter(config)
     stage = list(reversed(list(
-        collect_staging(git, branches_global.queue, branches_global.target)
+        collect_staging(git, branches_global.queue, branches_global.target),
     )))
-    logger.info('stage collected:' + ''.join(f'\n - {x}' for x in stage))
+    stage_str = ''.join(f'\n - {x}' for x in stage)
+    logger.info(f'stage collected: {stage_str}')
     for idx, (hash, branches) in enumerate(stage):
-        pr = extract_pr_from_branch_list(branches, config)
+        match extract_pr_from_branch_list(branches, config):
+            case Success(int()) as s:
+                pr = s.value
+            case Failure(NoMergesAtCommitError()) as e:
+                # TODO: return
+                raise RuntimeError(f'no merges found among {hash} - {branches}')
+            case _ as e:
+                raise AssertionError(f'unknown result: {e}')
         logger.info(f'check {hash} - #{pr}')
         branches_pr = branches_global.pr(pr)
         abort = False
@@ -157,12 +163,19 @@ def shake_stage(git: Git, gh: ProviderRepoApi, config: Config) -> None:
 
 
 def _rebase_queue_onto(git: Git, target: str, remaining: Iterable[CommitAndBranches],
-                       gh: ProviderRepoApi, config: Config) -> None:
+                       gh: ProviderRepoApi, config: RepoConfig) -> None:
     logger.info('queue rebase started')
     branches_global = BranchFormatter(config)
     git.new_branch(branches_global.queue, target, force=True)
     for hash, branches in remaining:
-        pr = extract_pr_from_branch_list(branches, config)
+        match extract_pr_from_branch_list(branches, config):
+            case Success(int()) as s:
+                pr = s.value
+            case Failure(NoMergesAtCommitError()) as e:
+                # TODO: return
+                raise RuntimeError(f'no merges found among {hash} - {branches}')
+            case _ as e:
+                raise AssertionError(f'unknown result: {e}')
         logger.info(f'rebasing {hash} - #{pr}')
         branches_pr = branches_global.pr(pr)
         if branches_pr.good in branches and branches_pr.bad in branches:
@@ -178,7 +191,11 @@ def _rebase_queue_onto(git: Git, target: str, remaining: Iterable[CommitAndBranc
     logger.info('queue rebase completed')
 
 
-def format_merge_message(pr: Pr, config: Config) -> str:
+class NoMergesAtCommitError(Error):
+    pass
+
+
+def format_merge_message(pr: Pr, config: RepoConfig) -> str:
     e = Environment(autoescape=True)
     return e.from_string(
         source=config.merge_template.jinja,
@@ -210,7 +227,7 @@ def collect_staging(git: Git, staging_branch: str, target_branch: str) \
             yield commit, branches
 
 
-def extract_pr_from_merge(branch: str, config: Config) -> int:
+def _extract_pr_from_merge(branch: str, config: RepoConfig) -> int:
     prefix = config.branching.branch_folder
     postfix = PrFormatter.POSTFIX_MERGE
     regex = re.compile(f'{prefix}/pr(\\d+)/({postfix})')
@@ -219,11 +236,19 @@ def extract_pr_from_merge(branch: str, config: Config) -> int:
     return int(m.group(1))
 
 
-def extract_pr_from_branch_list(branches: list[str], config: Config) -> int:
+def extract_pr_from_branch_list(branches: list[str], config: RepoConfig) \
+    -> Result[int, NoMergesAtCommitError]:
     for b in branches:
         if b.endswith(PrFormatter.POSTFIX_MERGE):
-            return extract_pr_from_merge(b, config)
-    raise RuntimeError(f'No merge postfix among branches: {branches}')
+            return Success(_extract_pr_from_merge(b, config))
+    logger.info(f'No merge postfix among branches: {branches}')
+    return Failure(NoMergesAtCommitError())
+
+
+def find_pr_matching_to_commit(commit: Hash, git: Git, config: RepoConfig) \
+    -> Result[int, NoMergesAtCommitError]:
+    branches = git.branches_at_ref(commit)
+    return extract_pr_from_branch_list(branches, config)
 
 
 T = TypeVar('T')

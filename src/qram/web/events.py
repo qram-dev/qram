@@ -2,6 +2,8 @@ from dataclasses import dataclass, field
 
 from tornado.queues import Queue
 
+from qram.types import Hash
+
 
 EventQueue = Queue['QramEvent']
 
@@ -23,7 +25,7 @@ class QramEvent:
 
 
 @dataclass
-class ProviderEvent(QramEvent):
+class RepoEvent(QramEvent):
     repo: str
 
 
@@ -43,12 +45,13 @@ class StopEvent(QramEvent):
 
 
 @dataclass
-class PrCommentEvent(ProviderEvent):
+class PrCommentEvent(RepoEvent):
     number: int
     pr: int
     message: str
 
 
 @dataclass
-class CheckCompletedEvent(ProviderEvent):
-    commit: str
+class CheckCompletedEvent(RepoEvent):
+    commit: Hash
+    good: bool

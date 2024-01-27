@@ -6,12 +6,13 @@ from random import choice
 from subprocess import call as _call
 from subprocess import check_call as _check_call
 from subprocess import check_output as _check_output
-from typing import Any, NewType, cast
+from typing import Any, cast
+
+from qram.types import Hash
 
 
 logger = getLogger(__name__)
 
-Hash = NewType('Hash', str)
 
 class Git:
     def __init__(self, repo_path: Path) -> None:
@@ -41,6 +42,9 @@ class Git:
             f.write(f'{x}\n')
         check_call(self.repo, ['add', x])
         check_call(self.repo, ['commit', '-m', x])
+
+    def fetch(self) -> None:
+        check_call(self.repo, ['fetch'])
 
     def push(self, x: str, *, force: bool=True) -> None:
         check_call(self.repo, ['push', '-u', 'origin', x, *(['--force'] if force else [])])
