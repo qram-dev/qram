@@ -2,7 +2,7 @@ name: ci kinda
 
 on:
   push:
-    branches: [ "main", "mq/stage" ]
+    branches: [ "main", "mq/queue" ]
   pull_request:
     branches: [ "main" ]
 
