@@ -39,5 +39,10 @@
     ]
     addopts = '--tb=native'
 
+
+
 [tool.ruff]
     line-length = 100
+
+[tool.ruff.format]
+    quote-style = 'single'

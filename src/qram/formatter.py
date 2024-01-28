@@ -17,6 +17,7 @@ class BranchFormatter:
     def pr(self, pr: int) -> 'PrFormatter':
         return PrFormatter(pr, self._config)
 
+
 class PrFormatter:
     POSTFIX_MERGE = 'merge-after-rebase'
     POSTFIX_BAD = 'bad'

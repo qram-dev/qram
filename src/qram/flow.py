@@ -26,8 +26,9 @@ def _merge(git: Git, pr_num: int, gh: ProviderRepoApi, config: RepoConfig) -> No
     # sanity checks
     logger.info('checking branch preconditions')
     if not git.branch_exists(branches_pr.merge):
-        raise RuntimeError(f'Cannot merge PR-{pr_num}: its branch {pr.branch_head}'
-                           ' has not been prepared yet')
+        raise RuntimeError(
+            f'Cannot merge PR-{pr_num}: its branch {pr.branch_head}' ' has not been prepared yet'
+        )
     if not git.branch_exists(branches_pr.good):
         raise RuntimeError(f'Cannot merge PR-{pr_num}: it is not marked as good')
     if git.branch_exists(branches_pr.bad):
@@ -48,8 +49,12 @@ def _merge(git: Git, pr_num: int, gh: ProviderRepoApi, config: RepoConfig) -> No
     logger.info('pushing target')
     git.push(branches_global.target)
     git.delete_branch(
-        branches_pr.merge, branches_pr.source, branches_pr.rebase, branches_pr.good, pr.branch_head,
-        force=True
+        branches_pr.merge,
+        branches_pr.source,
+        branches_pr.rebase,
+        branches_pr.good,
+        pr.branch_head,
+        force=True,
     )
     logger.info(f'merge completed for #{pr_num}')
 
@@ -85,8 +90,13 @@ def prepare(git: Git, pr_num: int, gh: ProviderRepoApi, config: RepoConfig) -> N
         message = format_merge_message(pr, config)
         author = format_author(pr)
 
-        git.merge(pr.branch_head, message, author,
-                  config.merge_template.author.name, config.merge_template.author.email)
+        git.merge(
+            pr.branch_head,
+            message,
+            author,
+            config.merge_template.author.name,
+            config.merge_template.author.email,
+        )
         git.new_branch(branches_pr.merge, force=True)
 
     logger.info('push new queue')
@@ -122,9 +132,13 @@ def mark_merge(git: Git, pr_num: int, config: RepoConfig, *, ci_ok: bool) -> Non
 def shake_stage(git: Git, gh: ProviderRepoApi, config: RepoConfig) -> None:
     logger.info('shake started')
     branches_global = BranchFormatter(config)
-    stage = list(reversed(list(
-        collect_staging(git, branches_global.queue, branches_global.target),
-    )))
+    stage = list(
+        reversed(
+            list(
+                collect_staging(git, branches_global.queue, branches_global.target),
+            )
+        )
+    )
     stage_str = ''.join(f'\n - {x}' for x in stage)
     logger.info(f'stage collected: {stage_str}')
     for idx, (hash, branches) in enumerate(stage):
@@ -151,7 +165,7 @@ def shake_stage(git: Git, gh: ProviderRepoApi, config: RepoConfig) -> None:
             logger.info('pr is bad, rebase remaining queue')
             # only way to get here should be if previous pr on stage was good. Ergo - it was merged,
             # target now points to its merge, and we should rebase onto it
-            remaining = stage[idx+1:]
+            remaining = stage[idx + 1 :]
             _rebase_queue_onto(git, branches_global.target, remaining, gh, config)
             abort = True
         else:
@@ -162,8 +176,13 @@ def shake_stage(git: Git, gh: ProviderRepoApi, config: RepoConfig) -> None:
     logger.info('shake completed, nothing left')
 
 
-def _rebase_queue_onto(git: Git, target: str, remaining: Iterable[CommitAndBranches],
-                       gh: ProviderRepoApi, config: RepoConfig) -> None:
+def _rebase_queue_onto(
+    git: Git,
+    target: str,
+    remaining: Iterable[CommitAndBranches],
+    gh: ProviderRepoApi,
+    config: RepoConfig,
+) -> None:
     logger.info('queue rebase started')
     branches_global = BranchFormatter(config)
     git.new_branch(branches_global.queue, target, force=True)
@@ -197,13 +216,17 @@ class NoMergesAtCommitError(Error):
 
 def format_merge_message(pr: Pr, config: RepoConfig) -> str:
     e = Environment(autoescape=True)
-    return e.from_string(
-        source=config.merge_template.jinja,
-        globals=dict(
-            pr=pr,
-            cfg=config,
-        ),
-    ).render().strip()
+    return (
+        e.from_string(
+            source=config.merge_template.jinja,
+            globals=dict(
+                pr=pr,
+                cfg=config,
+            ),
+        )
+        .render()
+        .strip()
+    )
 
 
 def format_author(pr: Pr) -> str:
@@ -215,15 +238,13 @@ def format_author(pr: Pr) -> str:
     return f'{username} <{email}>'
 
 
-def collect_staging(git: Git, staging_branch: str, target_branch: str) \
-        -> Iterable[CommitAndBranches]:
+def collect_staging(
+    git: Git, staging_branch: str, target_branch: str
+) -> Iterable[CommitAndBranches]:
     log = git.log(staging_branch)
     queue = takewhile(lambda tpl: target_branch not in tpl[1], log)
     for commit, branches in queue:
-        if any(
-            b.endswith(PrFormatter.POSTFIX_MERGE)
-            for b in branches
-        ):
+        if any(b.endswith(PrFormatter.POSTFIX_MERGE) for b in branches):
             yield commit, branches
 
 
@@ -236,8 +257,9 @@ def _extract_pr_from_merge(branch: str, config: RepoConfig) -> int:
     return int(m.group(1))
 
 
-def extract_pr_from_branch_list(branches: list[str], config: RepoConfig) \
-    -> Result[int, NoMergesAtCommitError]:
+def extract_pr_from_branch_list(
+    branches: list[str], config: RepoConfig
+) -> Result[int, NoMergesAtCommitError]:
     for b in branches:
         if b.endswith(PrFormatter.POSTFIX_MERGE):
             return Success(_extract_pr_from_merge(b, config))
@@ -245,13 +267,16 @@ def extract_pr_from_branch_list(branches: list[str], config: RepoConfig) \
     return Failure(NoMergesAtCommitError())
 
 
-def find_pr_matching_to_commit(commit: Hash, git: Git, config: RepoConfig) \
-    -> Result[int, NoMergesAtCommitError]:
+def find_pr_matching_to_commit(
+    commit: Hash, git: Git, config: RepoConfig
+) -> Result[int, NoMergesAtCommitError]:
     branches = git.branches_at_ref(commit)
     return extract_pr_from_branch_list(branches, config)
 
 
 T = TypeVar('T')
+
+
 def takewhile_inclusive(predicate: Callable[[T], bool], iterable: Iterable[T]) -> Iterable[T]:
     for x in iterable:
         yield x

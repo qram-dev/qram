@@ -19,8 +19,9 @@ class Git:
         self.repo = repo_path
 
     @contextmanager
-    def switched_branch(self, branch: str, source: str='HEAD', *,
-                        anew: bool=False) -> Generator[None, None, None]:
+    def switched_branch(
+        self, branch: str, source: str = 'HEAD', *, anew: bool = False
+    ) -> Generator[None, None, None]:
         if anew:
             call(self.repo, ['branch', '-D', branch])
 
@@ -46,14 +47,14 @@ class Git:
     def fetch(self) -> None:
         check_call(self.repo, ['fetch'])
 
-    def push(self, x: str, *, force: bool=True) -> None:
+    def push(self, x: str, *, force: bool = True) -> None:
         check_call(self.repo, ['push', '-u', 'origin', x, *(['--force'] if force else [])])
 
     def branch_exists(self, x: str) -> bool:
         return call(self.repo, ['show-ref', '--verify', '--quiet', f'refs/heads/{x}'])
 
-    def log(self, head: str|Hash) -> Iterable[tuple[Hash, list[str]]]:
-        '''For each commit reachable from `head`, get (hash, [branch1, branch2, ...])'''
+    def log(self, head: str | Hash) -> Iterable[tuple[Hash, list[str]]]:
+        """For each commit reachable from `head`, get (hash, [branch1, branch2, ...])"""
         sep = ' - '
         log = check_output(self.repo, ['log', f'--format=format:%h{sep}%D', f'{head}']).splitlines()
         splits = (tuple(line.split(sep)) for line in log)
@@ -62,51 +63,61 @@ class Git:
             if branches:
                 yield Hash(commit), branches
 
-    def new_branch(self, branch: str, at: str|Hash='HEAD', *, force: bool=False) -> None:
+    def new_branch(self, branch: str, at: str | Hash = 'HEAD', *, force: bool = False) -> None:
         check_call(self.repo, ['branch', branch, at, *(['--force'] if force else [])])
 
-
-    def delete_branch(self, *branches: str, force: bool=False) -> None:
+    def delete_branch(self, *branches: str, force: bool = False) -> None:
         check_call(self.repo, ['branch', ('-D' if force else '-d'), *branches])
 
-
-    def rebase(self, where: str|Hash) -> None:
+    def rebase(self, where: str | Hash) -> None:
         # FIXME: needs rollback if something fails
         check_call(self.repo, ['rebase', where])
-
 
     def clone(self, origin: str) -> None:
         check_call(self.repo, ['clone', origin, '.'])
 
-
-    def merge(self, what: str|Hash, message: str, author: str,
-              committer_name: str, committer_email: str) -> None:
+    def merge(
+        self, what: str | Hash, message: str, author: str, committer_name: str, committer_email: str
+    ) -> None:
         # FIXME: needs rollback if something fails
         # plain `git merge` does not allow specifying author, so use --no-commit + `git commit`
-        check_call(self.repo, [
-            '-c', f'user.name={committer_name}',
-            '-c', f'user.email={committer_email}',
-            'merge', what,
-            '--no-ff',
-            '--no-commit',
-        ])
-        check_call(self.repo, [
-            '-c', f'user.name={committer_name}',
-            '-c', f'user.email={committer_email}',
-            'commit',
-            '--author', author,
-            '--cleanup=whitespace', '-m', message,
-        ])
+        check_call(
+            self.repo,
+            [
+                '-c',
+                f'user.name={committer_name}',
+                '-c',
+                f'user.email={committer_email}',
+                'merge',
+                what,
+                '--no-ff',
+                '--no-commit',
+            ],
+        )
+        check_call(
+            self.repo,
+            [
+                '-c',
+                f'user.name={committer_name}',
+                '-c',
+                f'user.email={committer_email}',
+                'commit',
+                '--author',
+                author,
+                '--cleanup=whitespace',
+                '-m',
+                message,
+            ],
+        )
 
-
-    def branches_at_ref(self, ref: str|Hash) -> list[str]:
+    def branches_at_ref(self, ref: str | Hash) -> list[str]:
         output = check_output(self.repo, ['branch', '--points-at', ref])
         split = output.splitlines()
         # first 2 symbols are either `* ` for current branch or `  ` for the rest
         return [x[2:] for x in split]
 
 
-def call(repo: Path, cmd: list[str], **kw: Any) -> bool: # noqa: ANN401
+def call(repo: Path, cmd: list[str], **kw: Any) -> bool:  # noqa: ANN401
     full_cmd = ['git']
     if repo.absolute() != Path().absolute():
         full_cmd += ['-C', str(repo)]
@@ -119,7 +130,7 @@ def call(repo: Path, cmd: list[str], **kw: Any) -> bool: # noqa: ANN401
     return c == 0
 
 
-def check_call(repo: Path, cmd: list[str], **kw: Any) -> None: # noqa: ANN401
+def check_call(repo: Path, cmd: list[str], **kw: Any) -> None:  # noqa: ANN401
     full_cmd = ['git']
     if repo.absolute() != Path().absolute():
         full_cmd += ['-C', str(repo)]
@@ -130,7 +141,7 @@ def check_call(repo: Path, cmd: list[str], **kw: Any) -> None: # noqa: ANN401
     _check_call(full_cmd, **kw)
 
 
-def check_output(repo: Path, cmd: list[str], **kw: Any) -> str: # noqa: ANN401
+def check_output(repo: Path, cmd: list[str], **kw: Any) -> str:  # noqa: ANN401
     full_cmd = ['git']
     if repo.absolute() != Path().absolute():
         full_cmd += ['-C', str(repo)]
@@ -143,13 +154,15 @@ def check_output(repo: Path, cmd: list[str], **kw: Any) -> str: # noqa: ANN401
 
 def genhash() -> str:
     def ch() -> str:
-        return chr(choice(list(range(ord('g'), ord('z')+1)))) # noqa: S311
-    return ''.join([ch() for _ in range(0,11)])
+        return chr(choice(list(range(ord('g'), ord('z') + 1))))  # noqa: S311
+
+    return ''.join([ch() for _ in range(0, 11)])
 
 
 def extract_branches_from_line(
-        line: str, remote_list: list[str]=['origin'], # noqa: B006
-    ) -> list[str]:
+    line: str,
+    remote_list: list[str] = ['origin'],  # noqa: B006
+) -> list[str]:
     remotes = tuple(f'{x.rstrip("/")}/' for x in remote_list)
     split = line.strip().split(', ')
     result: list[str] = []
@@ -163,6 +176,6 @@ def extract_branches_from_line(
         if x.startswith('tag: '):
             continue
         if '->' in x:
-            _, x = x.split('->') # noqa: PLW2901
+            _, x = x.split('->')  # noqa: PLW2901
         result.append(x.strip())
     return result

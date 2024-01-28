@@ -1,5 +1,6 @@
 from qram.git import extract_branches_from_line
 
+
 class TestBranchExtraction:
     def test_basic(self) -> None:
         assert extract_branches_from_line('') == []

@@ -37,6 +37,7 @@ class PrInfo:
         self.object = object
         self.original = original
 
+
 class Context(SimpleNamespace):
     config: RepoConfig
     branches: BranchFormatter
@@ -50,15 +51,18 @@ class Context(SimpleNamespace):
 @pytest.fixture()
 def context(caplog: pytest.LogCaptureFixture) -> Context:
     caplog.set_level(logging.INFO)
-    caplog.handler.setFormatter(logging.Formatter(
-        '{levelname:5} : {name:10} : {message}', style='{',
-    ))
+    caplog.handler.setFormatter(
+        logging.Formatter(
+            '{levelname:5} : {name:10} : {message}',
+            style='{',
+        )
+    )
     cfg = RepoConfig.model_construct()
     return Context(
-        config = cfg,
-        branches = BranchFormatter(cfg),
-        gh = GithubMock(),
-        pr = dict(),
+        config=cfg,
+        branches=BranchFormatter(cfg),
+        gh=GithubMock(),
+        pr=dict(),
     )
 
 
@@ -75,10 +79,7 @@ def git(repo_tar: Path) -> Git:
 @given(parsers.parse("PR '{num:d}' exists"))
 def _(context: Context, git: Git, num: int) -> None:
     p = context.gh.get_pr(num)
-    context.pr[num] = PrInfo(
-        object = p,
-        original = git.hash_of(p.branch_head)
-    )
+    context.pr[num] = PrInfo(object=p, original=git.hash_of(p.branch_head))
 
 
 @when('Flow starts')
@@ -87,8 +88,11 @@ def _(context: Context, git: Git) -> None:
     git.push.call_count = 0
 
 
-@then(parsers.parse("Markers state is:\n{markers:T}",
-                    extra_types={'T': datatable(int, str, str2bool)}))
+@then(
+    parsers.parse(
+        'Markers state is:\n{markers:T}', extra_types={'T': datatable(int, str, str2bool)}
+    )
+)
 def _(context: Context, git: Git, markers: DataTable[int, str, bool]) -> None:
     for pr, marker, state in markers:
         marker = translate_alias(marker, context.branches, context.pr[pr])
@@ -142,8 +146,8 @@ def _(context: Context, git: Git, first: str, state: str, second: str) -> None:
     compare_aliases(context, git, None, first, state, second)
 
 
-@when(parsers.parse("Stage is shaken"))
-@given(parsers.parse("Stage was shaken"))
+@when(parsers.parse('Stage is shaken'))
+@given(parsers.parse('Stage was shaken'))
 def _(context: Context, git: Git) -> None:
     flow.shake_stage(git, context.gh, context.config)
 
@@ -169,8 +173,9 @@ def _(context: Context, git: Git, num: int) -> None:
 ### utils
 
 
-def compare_aliases(context: Context, git: Git, pr: Optional[PrInfo],
-                    first: str, state: str, second: str) -> None:
+def compare_aliases(
+    context: Context, git: Git, pr: Optional[PrInfo], first: str, state: str, second: str
+) -> None:
     what_is = calculate_hash(git, first, context.branches, pr)
     should_be = calculate_hash(git, second, context.branches, pr)
     if state == 'matches':
@@ -182,9 +187,7 @@ def compare_aliases(context: Context, git: Git, pr: Optional[PrInfo],
 
 
 def translate_alias(
-        alias_from_datatable: str,
-        global_branches: BranchFormatter,
-        pr: Optional[PrInfo]=None
+    alias_from_datatable: str, global_branches: BranchFormatter, pr: Optional[PrInfo] = None
 ) -> str:
     if alias_from_datatable in ('target', 'queue'):
         branch = global_branches.__getattribute__(alias_from_datatable)
@@ -206,10 +209,10 @@ def translate_alias(
 
 
 def calculate_hash(
-        git: Git,
-        alias_from_datatable: str,
-        global_branches: BranchFormatter,
-        pr: Optional[PrInfo]=None
-    ) -> Hash:
+    git: Git,
+    alias_from_datatable: str,
+    global_branches: BranchFormatter,
+    pr: Optional[PrInfo] = None,
+) -> Hash:
     branch = translate_alias(alias_from_datatable, global_branches, pr)
     return git.hash_of(branch)

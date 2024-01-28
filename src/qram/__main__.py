@@ -16,6 +16,7 @@ from qram.flow import (
 from qram.config import Config
 from qram.github import Github
 
+
 class Args(NamedTuple):
     target: str
     command: str
@@ -48,7 +49,7 @@ def main(args: Args) -> None:
     gh = Github(token, args.owner, args.repo)
 
     if args.command == 'generate':
-        for i in range(1, 1+args.pr):
+        for i in range(1, 1 + args.pr):
             generate(args.root, i, gh)
     elif args.command == 'prepare':
         prepare(args.pr, gh, config)

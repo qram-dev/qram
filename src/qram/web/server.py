@@ -28,7 +28,7 @@ class WebhookHandler(RequestHandler):
     webhook: Webhook
     debug: bool
 
-    def initialize(self, token: str|None, webhook: Webhook, debug: bool) -> None: # noqa: FBT001
+    def initialize(self, token: str | None, webhook: Webhook, debug: bool) -> None:  # noqa: FBT001
         self.token = token.encode('utf-8') if token else None
         self.webhook = webhook
         self.debug = debug
@@ -39,7 +39,7 @@ class WebhookHandler(RequestHandler):
             self.add_header('Access-Control-Allow-Origin', 'https://webhook.site')
 
     def post(self) -> None:
-        logger.info('-'*80)
+        logger.info('-' * 80)
         if self.debug:
             self.add_header('Access-Control-Allow-Headers', 'x-hub-signature-256')
             self.add_header('Access-Control-Allow-Origin', 'https://webhook.site')
@@ -77,8 +77,9 @@ class StopHandler(RequestHandler):
         self.write('Goodbye.')
 
 
-async def make_server(config: AppConfig, *, debug: bool, provide_stop: bool,
-                      initialize_repos: bool) -> None:
+async def make_server(
+    config: AppConfig, *, debug: bool, provide_stop: bool, initialize_repos: bool
+) -> None:
     if config.hmac:
         logger.info('HMAC secret provided, incoming requests will be verified')
     queue = events.EventQueue()
@@ -89,7 +90,7 @@ async def make_server(config: AppConfig, *, debug: bool, provide_stop: bool,
     match config.provider:
         case 'github':
             assert config.github is not None
-            logger.info( '    PROVIDER: GITHUB')
+            logger.info('    PROVIDER: GITHUB')
             logger.info(f'         APP: {config.github.app_id}')
             logger.info(f'INSTALLATION: {config.github.installation_id}')
             webhook = GithubWebhook(queue)
@@ -97,13 +98,22 @@ async def make_server(config: AppConfig, *, debug: bool, provide_stop: bool,
         case _:
             raise RuntimeError(f'unexpected provider: {config.provider}')
 
-    app = Application([
-        ('/', MainHandler),
-        ('/webhook', WebhookHandler, dict(
-            token=config.hmac, webhook=webhook, debug=debug,
-        )),
-        *([('/stop', StopHandler, dict(queue=queue))] if provide_stop else []),
-    ], debug=debug)
+    app = Application(
+        [
+            ('/', MainHandler),
+            (
+                '/webhook',
+                WebhookHandler,
+                dict(
+                    token=config.hmac,
+                    webhook=webhook,
+                    debug=debug,
+                ),
+            ),
+            *([('/stop', StopHandler, dict(queue=queue))] if provide_stop else []),
+        ],
+        debug=debug,
+    )
 
     server = app.listen(config.port)
     logger.info(f'serving on port {config.port}')

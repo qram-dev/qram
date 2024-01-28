@@ -9,10 +9,13 @@ EventQueue = Queue['QramEvent']
 
 
 _event_id = 1
+
+
 @dataclass
 class QramEvent:
     event_id: int = field(init=False)
     cause: str = field(init=False)
+
     def __post_init__(self) -> None:
         global _event_id
         self.event_id = _event_id
