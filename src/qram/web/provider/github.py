@@ -9,7 +9,6 @@ from requests import Response, request
 from qram.config import AppConfig
 from qram.web.provider import Pr, ProviderApi, ProviderRepoApi
 
-
 logger = getLogger(__name__)
 
 # Github API is weird.

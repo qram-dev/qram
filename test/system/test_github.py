@@ -2,16 +2,13 @@ import logging
 from collections.abc import Generator
 from datetime import datetime
 from pathlib import Path
-
-import pytest
-
-from qram.config import AppConfig
-from qram.globals import WORKDIR
-from qram.web.provider.github import Github, github_api
-
 from test import chdir
 from test.system import BetterCaplog, ServerThread, wait_for
 
+import pytest
+from qram.config import AppConfig
+from qram.globals import WORKDIR
+from qram.web.provider.github import Github, github_api
 
 # these are under our protection
 # pyright: reportPrivateUsage=false

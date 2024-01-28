@@ -3,7 +3,6 @@
 from collections.abc import Callable, Generator, Iterable
 from typing import Any, TypeVarTuple
 
-
 Ts = TypeVarTuple('Ts')
 DataTable = Generator[tuple[*Ts], None, None]
 

@@ -1,6 +1,6 @@
-import pytest
-
 from test.system import BetterCaplog
+
+import pytest
 
 
 @pytest.fixture()

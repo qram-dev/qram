@@ -5,7 +5,6 @@ from argparse import ArgumentParser
 from dataclasses import dataclass
 
 from dotenv import load_dotenv
-
 from qram.config import AppConfig
 from qram.web.provider.github import github_api
 

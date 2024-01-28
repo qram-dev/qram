@@ -1,5 +1,4 @@
 import tarfile
-
 from pathlib import Path
 
 import pytest

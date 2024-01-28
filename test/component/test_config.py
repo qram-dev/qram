@@ -1,13 +1,11 @@
 from collections.abc import Generator
 from pathlib import Path
+from test import chdir
 from typing import Any
 
 import pytest
 from pydantic import ValidationError
-
 from qram.config import AppConfig, RepoConfig
-
-from test import chdir
 
 
 @pytest.fixture

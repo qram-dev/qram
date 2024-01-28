@@ -8,9 +8,8 @@ from qram.config import AppConfig
 from qram.errors import ExpectedError
 from qram.web import events
 from qram.web.provider.github import github_api
-from qram.web.webhook.base import Webhook, EventHandler
+from qram.web.webhook.base import EventHandler, Webhook
 from qram.web.webhook.github import GithubHandler, GithubWebhook
-
 
 logger = logging.getLogger(__name__)
 

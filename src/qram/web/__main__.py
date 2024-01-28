@@ -7,7 +7,6 @@ from pathlib import Path
 from qram.config import AppConfig
 from qram.web.server import make_server
 
-
 logger = logging.getLogger(__name__)
 
 

@@ -8,7 +8,6 @@ from typing import Any
 import yaml
 from pydantic import BaseModel, Field, StrictStr, model_validator
 
-
 logger = logging.getLogger(__name__)
 
 

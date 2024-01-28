@@ -14,7 +14,6 @@ from qram.errors import ExpectedError
 from qram.git import Git
 from qram.globals import WORKDIR
 from qram.types import Hash
-from qram.web.webhook.base import EventHandler, Webhook
 from qram.web.events import (
     CheckCompletedEvent,
     EventQueue,
@@ -23,7 +22,7 @@ from qram.web.events import (
     QramEvent,
 )
 from qram.web.provider.github import Github
-
+from qram.web.webhook.base import EventHandler, Webhook
 
 logger = getLogger(__name__)
 

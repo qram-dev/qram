@@ -10,7 +10,6 @@ from typing import Any, cast
 
 from qram.types import Hash
 
-
 logger = getLogger(__name__)
 
 

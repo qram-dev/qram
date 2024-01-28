@@ -1,19 +1,18 @@
 #!/usr/bin/env python3
 
 import logging
-
 from argparse import ArgumentParser
 from os import chdir
 from pathlib import Path
 from typing import NamedTuple, Optional
 
 from qram import git
+from qram.config import Config
 from qram.flow import (
     mark_merge_bad,
     merge,
     prepare,
 )
-from qram.config import Config
 from qram.github import Github
 
 

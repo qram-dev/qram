@@ -1,5 +1,6 @@
 from contextlib import contextmanager
-from os import chdir as _chdir, getcwd
+from os import chdir as _chdir
+from os import getcwd
 from typing import Generator
 
 from qram.types import StrOrBytesPath

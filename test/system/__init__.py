@@ -6,11 +6,9 @@ from threading import Thread
 from typing import Any
 
 import pytest
-from requests import get, post
-
 from qram.config import AppConfig
 from qram.web.server import make_server
-
+from requests import get, post
 
 logger = logging.getLogger(__name__)
 

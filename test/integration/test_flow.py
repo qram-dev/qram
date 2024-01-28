@@ -1,22 +1,19 @@
 import logging
 from pathlib import Path
+from test.integration import DataTable, datatable, str2bool
+from test.integration.mocks import GithubMock
 from types import SimpleNamespace
 from typing import Optional
 from unittest.mock import MagicMock
 
 import pytest
 from pytest_bdd import given, parsers, scenarios, then, when
-
 from qram import flow
 from qram.config import RepoConfig
 from qram.formatter import BranchFormatter
 from qram.git import Git
 from qram.types import Hash
 from qram.web.provider import Pr
-
-from test.integration import DataTable, datatable, str2bool
-from test.integration.mocks import GithubMock
-
 
 # these are under our protection
 # pyright: reportPrivateUsage=false

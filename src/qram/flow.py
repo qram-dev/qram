@@ -11,8 +11,7 @@ from qram.config import RepoConfig
 from qram.formatter import BranchFormatter, PrFormatter
 from qram.git import Git
 from qram.types import CommitAndBranches, Hash
-from qram.web.provider import ProviderRepoApi, Pr
-
+from qram.web.provider import Pr, ProviderRepoApi
 
 logger = getLogger(__name__)
 

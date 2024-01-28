@@ -4,7 +4,6 @@ from tornado.queues import Queue
 
 from qram.types import Hash
 
-
 EventQueue = Queue['QramEvent']
 
 
