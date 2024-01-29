@@ -66,7 +66,8 @@ def context(caplog: pytest.LogCaptureFixture) -> Context:
 @pytest.fixture()
 def git(repo_tar: Path) -> Git:
     g = Git(repo_tar)
-    g.push = MagicMock()
+    # can assign to method, this is the core idea of mocks, isn't it?
+    g.push = MagicMock()  # type: ignore
     return g
 
 

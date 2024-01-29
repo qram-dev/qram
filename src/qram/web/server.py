@@ -1,4 +1,5 @@
 import logging
+from typing import assert_never
 
 from meiga import Failure, Success
 from tornado.ioloop import IOLoop
@@ -62,8 +63,8 @@ class WebhookHandler(RequestHandler):
                 m = e.get_value().message
                 logger.info(f'failed to process request: {m}')
                 self.set_status(400, m)
-            case _ as e:
-                raise RuntimeError(f'unexpected storage result: {e}')
+            case _ as e:  # type: ignore
+                assert_never(e)  # type: ignore
 
 
 class StopHandler(RequestHandler):
@@ -143,15 +144,16 @@ def process(event: events.QramEvent, handler: EventHandler) -> None:
             handler.handle_stop()
         case events.PingEvent():
             logger.info('Pong!')
+        # mypy seems to have troubles (again...) with inheritance chain Base->Intermediate->Actual
         case events.PrCommentEvent() as e:
-            logger.info(f'A comment was posted on PR #{e.pr}')
+            logger.info(f'A comment was posted on PR #{e.pr}')  # type: ignore[attr-defined]
             if event.message.strip().startswith('!qram'):
                 logger.info('It is meant for us!')
                 handler.handle_pr_comment(e)
             else:
                 logger.info('It is just some comment')
         case events.CheckCompletedEvent() as e:
-            logger.info(f'A check completed on {e.commit}!')
+            logger.info(f'A check completed on {e.commit}!')  # type: ignore[attr-defined]
             handler.handle_check_complete(e)
         case _ as e:
             logger.warning(f'⚠️ Unexpected event type {e}\nIt is most likely a bug in Qram')

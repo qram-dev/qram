@@ -1,6 +1,6 @@
 from unittest.mock import Mock
 
-from qram.web.provider.github import Pr
+from qram.web.provider import Pr
 
 
 def get_pr(num: int) -> Pr:
