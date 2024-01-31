@@ -1,20 +1,20 @@
 #!/usr/bin/env python3
 
 import logging
-
 from argparse import ArgumentParser
 from os import chdir
 from pathlib import Path
 from typing import NamedTuple, Optional
 
 from qram import git
+from qram.config import Config
 from qram.flow import (
     mark_merge_bad,
     merge,
     prepare,
 )
-from qram.config import Config
 from qram.github import Github
+
 
 class Args(NamedTuple):
     target: str
@@ -48,7 +48,7 @@ def main(args: Args) -> None:
     gh = Github(token, args.owner, args.repo)
 
     if args.command == 'generate':
-        for i in range(1, 1+args.pr):
+        for i in range(1, 1 + args.pr):
             generate(args.root, i, gh)
     elif args.command == 'prepare':
         prepare(args.pr, gh, config)

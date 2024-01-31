@@ -9,12 +9,14 @@ from qram.web.events import CheckCompletedEvent, PrCommentEvent
 
 
 class Webhook:
-    '''Subclasses transform incoming JSON requests into events for queue'''
+    """Subclasses transform incoming JSON requests into events for queue"""
+
     __metaclass__ = abc.ABCMeta
 
     @abc.abstractmethod
-    def verify_request(self, token: bytes|None, request: HTTPServerRequest) \
-            -> Result[Literal[True], ExpectedError]:
+    def verify_request(
+        self, token: bytes | None, request: HTTPServerRequest
+    ) -> Result[Literal[True], ExpectedError]:
         raise NotImplementedError
 
     @abc.abstractmethod
@@ -23,7 +25,8 @@ class Webhook:
 
 
 class EventHandler:
-    '''Subclasses perform provider-specific actions upon events from queue'''
+    """Subclasses perform provider-specific actions upon events from queue"""
+
     __metaclass__ = abc.ABCMeta
 
     @abc.abstractmethod

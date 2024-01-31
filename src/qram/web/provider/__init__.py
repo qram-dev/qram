@@ -22,6 +22,6 @@ class ProviderRepoApi:
 class Pr:
     number: int
     title: str
-    body: str|None
+    body: str | None
     branch_head: str
-    author: dict[str, str|int|None]
+    author: dict[str, str | int | None]

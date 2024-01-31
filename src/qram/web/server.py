@@ -1,4 +1,5 @@
 import logging
+from typing import assert_never
 
 from meiga import Failure, Success
 from tornado.ioloop import IOLoop
@@ -8,9 +9,8 @@ from qram.config import AppConfig
 from qram.errors import ExpectedError
 from qram.web import events
 from qram.web.provider.github import github_api
-from qram.web.webhook.base import Webhook, EventHandler
+from qram.web.webhook.base import EventHandler, Webhook
 from qram.web.webhook.github import GithubHandler, GithubWebhook
-
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +28,7 @@ class WebhookHandler(RequestHandler):
     webhook: Webhook
     debug: bool
 
-    def initialize(self, token: str|None, webhook: Webhook, debug: bool) -> None: # noqa: FBT001
+    def initialize(self, token: str | None, webhook: Webhook, debug: bool) -> None:  # noqa: FBT001
         self.token = token.encode('utf-8') if token else None
         self.webhook = webhook
         self.debug = debug
@@ -39,7 +39,7 @@ class WebhookHandler(RequestHandler):
             self.add_header('Access-Control-Allow-Origin', 'https://webhook.site')
 
     def post(self) -> None:
-        logger.info('-'*80)
+        logger.info('-' * 80)
         if self.debug:
             self.add_header('Access-Control-Allow-Headers', 'x-hub-signature-256')
             self.add_header('Access-Control-Allow-Origin', 'https://webhook.site')
@@ -63,8 +63,8 @@ class WebhookHandler(RequestHandler):
                 m = e.get_value().message
                 logger.info(f'failed to process request: {m}')
                 self.set_status(400, m)
-            case _ as e:
-                raise RuntimeError(f'unexpected storage result: {e}')
+            case _ as e:  # type: ignore
+                assert_never(e)  # type: ignore
 
 
 class StopHandler(RequestHandler):
@@ -77,8 +77,9 @@ class StopHandler(RequestHandler):
         self.write('Goodbye.')
 
 
-async def make_server(config: AppConfig, *, debug: bool, provide_stop: bool,
-                      initialize_repos: bool) -> None:
+async def make_server(
+    config: AppConfig, *, debug: bool, provide_stop: bool, initialize_repos: bool
+) -> None:
     if config.hmac:
         logger.info('HMAC secret provided, incoming requests will be verified')
     queue = events.EventQueue()
@@ -89,7 +90,7 @@ async def make_server(config: AppConfig, *, debug: bool, provide_stop: bool,
     match config.provider:
         case 'github':
             assert config.github is not None
-            logger.info( '    PROVIDER: GITHUB')
+            logger.info('    PROVIDER: GITHUB')
             logger.info(f'         APP: {config.github.app_id}')
             logger.info(f'INSTALLATION: {config.github.installation_id}')
             webhook = GithubWebhook(queue)
@@ -97,13 +98,22 @@ async def make_server(config: AppConfig, *, debug: bool, provide_stop: bool,
         case _:
             raise RuntimeError(f'unexpected provider: {config.provider}')
 
-    app = Application([
-        ('/', MainHandler),
-        ('/webhook', WebhookHandler, dict(
-            token=config.hmac, webhook=webhook, debug=debug,
-        )),
-        *([('/stop', StopHandler, dict(queue=queue))] if provide_stop else []),
-    ], debug=debug)
+    app = Application(
+        [
+            ('/', MainHandler),
+            (
+                '/webhook',
+                WebhookHandler,
+                dict(
+                    token=config.hmac,
+                    webhook=webhook,
+                    debug=debug,
+                ),
+            ),
+            *([('/stop', StopHandler, dict(queue=queue))] if provide_stop else []),
+        ],
+        debug=debug,
+    )
 
     server = app.listen(config.port)
     logger.info(f'serving on port {config.port}')
@@ -134,15 +144,16 @@ def process(event: events.QramEvent, handler: EventHandler) -> None:
             handler.handle_stop()
         case events.PingEvent():
             logger.info('Pong!')
+        # mypy seems to have troubles (again...) with inheritance chain Base->Intermediate->Actual
         case events.PrCommentEvent() as e:
-            logger.info(f'A comment was posted on PR #{e.pr}')
+            logger.info(f'A comment was posted on PR #{e.pr}')  # type: ignore[attr-defined]
             if event.message.strip().startswith('!qram'):
                 logger.info('It is meant for us!')
                 handler.handle_pr_comment(e)
             else:
                 logger.info('It is just some comment')
         case events.CheckCompletedEvent() as e:
-            logger.info(f'A check completed on {e.commit}!')
+            logger.info(f'A check completed on {e.commit}!')  # type: ignore[attr-defined]
             handler.handle_check_complete(e)
         case _ as e:
             logger.warning(f'⚠️ Unexpected event type {e}\nIt is most likely a bug in Qram')

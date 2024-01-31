@@ -8,18 +8,20 @@ from typing import Any
 import yaml
 from pydantic import BaseModel, Field, StrictStr, model_validator
 
-
 logger = logging.getLogger(__name__)
+
 
 class _CfgAuthor(BaseModel, extra='forbid'):
     name: StrictStr = 'qram'
     email: StrictStr = 'qram@no.email'
 
+
 class _CfgMergeTemplate(BaseModel, extra='forbid'):
     author: _CfgAuthor = _CfgAuthor()
-    jinja: StrictStr = '''#{{pr.number}}: {{pr.title}}
+    jinja: StrictStr = """#{{pr.number}}: {{pr.title}}
 
-{{pr.body}}'''
+{{pr.body}}"""
+
 
 class _CfgBranching(BaseModel, extra='forbid'):
     target_branch: StrictStr = 'main'
@@ -27,14 +29,14 @@ class _CfgBranching(BaseModel, extra='forbid'):
 
     @model_validator(mode='after')
     def strip_trailing_slash(self) -> _CfgBranching:
-        '''to avoid accidental //'s in paths'''
+        """to avoid accidental //'s in paths"""
         self.branch_folder = self.branch_folder.strip('/')
         return self
 
 
 def file_contents(x: str) -> str:
-    '''config.yaml has X_file, which is path - but in the object itself we
-    want X field to be string contents of said file.'''
+    """config.yaml has X_file, which is path - but in the object itself we
+    want X field to be string contents of said file."""
     p = Path(x)
     if not p or not p.is_file():
         raise ValueError(f'invalid file: {p.absolute()}')
@@ -43,18 +45,22 @@ def file_contents(x: str) -> str:
         raise ValueError(f'file is empty: {p.absolute()}')
     return c
 
+
 class _CfgGithub(BaseModel, extra='forbid'):
     app_id: StrictStr
     installation_id: StrictStr
     pem: StrictStr = Field(alias='pem_file')
     webhook_url: StrictStr | None = None
+
     @model_validator(mode='after')
     def read_pem_from_file(self) -> _CfgGithub:
         self.pem = file_contents(self.pem)
         return self
 
+
 class _CfgGitea(BaseModel, extra='forbid'):
     pass
+
 
 class AppConfig(BaseModel, extra='forbid'):
     port: int = 8888
@@ -70,15 +76,15 @@ class AppConfig(BaseModel, extra='forbid'):
         if pem is None:
             pem = Path(os.environ['QRAM_APP_GITHUB_PEM_FILE']).read_text()
         c.github = _CfgGithub.model_construct(
-            app_id = os.environ['QRAM_APP_GITHUB_APP_ID'],
-            installation_id = os.environ['QRAM_APP_GITHUB_INSTALLATION_ID'],
-            pem = pem.strip(),
-            webhook_url = os.environ['QRAM_WEBHOOK_URL'],
+            app_id=os.environ['QRAM_APP_GITHUB_APP_ID'],
+            installation_id=os.environ['QRAM_APP_GITHUB_INSTALLATION_ID'],
+            pem=pem.strip(),
+            webhook_url=os.environ['QRAM_WEBHOOK_URL'],
         )
         return c
 
     @staticmethod
-    def read_from_file(config_file: Path=Path('qram-app.yml')) -> AppConfig:
+    def read_from_file(config_file: Path = Path('qram-app.yml')) -> AppConfig:
         if not config_file.exists():
             raise FileNotFoundError(f'app config file {config_file.absolute()} does not exist')
 
@@ -106,7 +112,6 @@ class AppConfig(BaseModel, extra='forbid'):
             raise ValueError(f'only one of {providers_string} fields must be specified')
         return field_values
 
-
     @property
     def provider(self) -> str:
         if self.gitea:
@@ -120,9 +125,8 @@ class RepoConfig(BaseModel, extra='forbid'):
     branching: _CfgBranching = _CfgBranching.model_construct()
     merge_template: _CfgMergeTemplate = _CfgMergeTemplate.model_construct()
 
-
     @staticmethod
-    def read_from_file(config_file: Path=Path('qram.yml')) -> RepoConfig:
+    def read_from_file(config_file: Path = Path('qram.yml')) -> RepoConfig:
         if not config_file.exists():
             raise FileNotFoundError(f'repo config file {config_file.absolute()} does not exist')
 

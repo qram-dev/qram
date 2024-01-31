@@ -39,5 +39,14 @@
     ]
     addopts = '--tb=native'
 
+
+
 [tool.ruff]
     line-length = 100
+    select = [
+        'I', # isort
+        'F', # PyFlakes
+    ]
+
+[tool.ruff.format]
+    quote-style = 'single'

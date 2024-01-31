@@ -7,7 +7,6 @@ from pathlib import Path
 from qram.config import AppConfig
 from qram.web.server import make_server
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -27,8 +26,9 @@ def parse_args() -> Args:
 def main(args: Args) -> None:
     logging.basicConfig(level=logging.DEBUG if args.debug else logging.INFO)
     config = AppConfig.read_from_file(args.config_file)
-    server_coro = make_server(config, debug=args.debug, provide_stop=args.debug,
-                              initialize_repos=True)
+    server_coro = make_server(
+        config, debug=args.debug, provide_stop=args.debug, initialize_repos=True
+    )
     asyncio.run(server_coro)
 
 

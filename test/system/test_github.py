@@ -2,16 +2,13 @@ import logging
 from collections.abc import Generator
 from datetime import datetime
 from pathlib import Path
-
-import pytest
-
-from qram.config import AppConfig
-from qram.globals import WORKDIR
-from qram.web.provider.github import Github, github_api
-
 from test import chdir
 from test.system import BetterCaplog, ServerThread, wait_for
 
+import pytest
+from qram.config import AppConfig
+from qram.globals import WORKDIR
+from qram.web.provider.github import Github, github_api
 
 # these are under our protection
 # pyright: reportPrivateUsage=false
@@ -82,14 +79,15 @@ def test_app_initialize_repos(config: AppConfig, better_caplog: BetterCaplog) ->
             better_caplog.log_contains('Initialization done'),
             'repos never got initialized',
             attempts=10,
-            sleep_mult=2
+            sleep_mult=2,
         )
         assert (WORKDIR / ORG / REPO / 'README.md').is_file(), 'repo was not checked out'
 
 
 @pytest.mark.sysB
-def test_comment_reaction(config: AppConfig, api: Github, better_caplog: BetterCaplog,
-                          webhook_reconfigured: None) -> None:
+def test_comment_reaction(
+    config: AppConfig, api: Github, better_caplog: BetterCaplog, webhook_reconfigured: None
+) -> None:
     better_caplog.set_level(logging.INFO, logger='qram.web')
     better_caplog.set_level(logging.INFO, logger='qram.web.server')
     server_thread = ServerThread(config, debug=True)

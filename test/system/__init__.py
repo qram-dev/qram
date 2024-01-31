@@ -6,11 +6,9 @@ from threading import Thread
 from typing import Any
 
 import pytest
-from requests import get, post
-
 from qram.config import AppConfig
 from qram.web.server import make_server
-
+from requests import get, post
 
 logger = logging.getLogger(__name__)
 
@@ -19,8 +17,9 @@ class ServerThread(Thread):
     exception: Exception | None
     timeout: float | None
 
-    def __init__(self, config: AppConfig, *, debug: bool, initialize_repos: bool=False,
-                 timeout: float=10):
+    def __init__(
+        self, config: AppConfig, *, debug: bool, initialize_repos: bool = False, timeout: float = 10
+    ):
         super().__init__(name=f'Qram-{config.provider}:{config.port}')
         self.debug = debug
         self.config = config
@@ -30,8 +29,14 @@ class ServerThread(Thread):
 
     def run(self) -> None:
         try:
-            asyncio.run(make_server(self.config, debug=self.debug, provide_stop=True,
-                                    initialize_repos=self.initialize_repos))
+            asyncio.run(
+                make_server(
+                    self.config,
+                    debug=self.debug,
+                    provide_stop=True,
+                    initialize_repos=self.initialize_repos,
+                )
+            )
         except Exception as e:
             self.exception = e
 
@@ -42,6 +47,7 @@ class ServerThread(Thread):
         def server_started() -> bool:
             r = get(f'http://localhost:{self.config.port}', timeout=1)
             return r.ok and r.content == b'qram'
+
         wait_for(server_started, f'qram did not start on port {self.config.port}')
         logger.info('▶▶▶ started')
 
@@ -57,8 +63,9 @@ class ServerThread(Thread):
             raise self.exception
 
 
-def wait_for(check: Callable[[], bool], errmsg: str, *, attempts: int=5, sleep_mult: float=1) \
-    -> None:
+def wait_for(
+    check: Callable[[], bool], errmsg: str, *, attempts: int = 5, sleep_mult: float = 1
+) -> None:
     exception = None
     for att in range(1, attempts + 2):
         logger.debug(f'waiting for {check}, attempt #{att}')
@@ -67,7 +74,7 @@ def wait_for(check: Callable[[], bool], errmsg: str, *, attempts: int=5, sleep_m
                 return
         except Exception as e:
             exception = e
-        time.sleep(att*sleep_mult)
+        time.sleep(att * sleep_mult)
     errmsg = f'{errmsg} after {attempts} checks'
     logger.error(f'🟥  {errmsg}')
     if exception:
@@ -88,4 +95,5 @@ class BetterCaplog:
     def log_contains(self, msg: str) -> Callable[[], bool]:
         def contains() -> bool:
             return any(msg in record.message for record in self.caplog.records)
+
         return contains

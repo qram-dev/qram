@@ -1,13 +1,11 @@
 from collections.abc import Generator
 from pathlib import Path
+from test import chdir
 from typing import Any
 
 import pytest
 from pydantic import ValidationError
-
 from qram.config import AppConfig, RepoConfig
-
-from test import chdir
 
 
 @pytest.fixture
@@ -17,13 +15,13 @@ def chtmp(tmp_path: Path) -> Generator[Path, None, None]:
 
 
 # TODO: find proper type hint
-@pytest.mark.parametrize("test_class", [AppConfig, RepoConfig])
+@pytest.mark.parametrize('test_class', [AppConfig, RepoConfig])
 def test_no_config_file(chtmp: Path, test_class: Any) -> None:
     with pytest.raises(FileNotFoundError):
         test_class.read_from_file()
 
 
-@pytest.mark.parametrize("test_class", [AppConfig, RepoConfig])
+@pytest.mark.parametrize('test_class', [AppConfig, RepoConfig])
 def test_empty_file(chtmp: Path, test_class: Any) -> None:
     p = write_config('')
     with pytest.raises(ValidationError):
@@ -107,8 +105,7 @@ def test_app_empty_secret_file(chtmp: Path) -> None:
 
 
 def test_app_invalid_provider() -> None:
-    obj: Any = dict(
-    )
+    obj: Any = dict()
     with pytest.raises(ValidationError) as e:
         AppConfig.model_validate(obj)
     e.match('one of.*has to be specified')
@@ -123,12 +120,14 @@ def test_app_invalid_provider() -> None:
 
 
 def test_app_valid_file(chtmp: Path) -> None:
-    p = write_config('''
+    p = write_config(
+        """
         github:
             app_id: '1'
             installation_id: '2'
             pem_file: qram.yml
-    ''')
+    """
+    )
     c = AppConfig.read_from_file(p)
     assert c.provider == 'github'
     assert c.github
@@ -138,12 +137,14 @@ def test_app_valid_file(chtmp: Path) -> None:
 
 
 def test_repo_valid_file(chtmp: Path) -> None:
-    p = write_config('''
+    p = write_config(
+        """
         merge_template:
             jinja: x
             author:
                 name: y
-    ''')
+    """
+    )
     c = RepoConfig.read_from_file(p)
     assert c.branching.branch_folder == 'mq'
     assert c.branching.target_branch == 'main'
@@ -151,7 +152,9 @@ def test_repo_valid_file(chtmp: Path) -> None:
     assert c.merge_template.author.name == 'y'
     assert c.merge_template.author.email == 'qram@no.email'
 
+
 ###
+
 
 def write_config(content: str) -> Path:
     p = Path('qram.yml')

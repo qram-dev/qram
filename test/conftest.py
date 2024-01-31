@@ -1,8 +1,8 @@
 import tarfile
-
 from pathlib import Path
 
 import pytest
+
 
 @pytest.fixture(scope='function')
 def repo_tar(tmp_path: Path) -> Path:

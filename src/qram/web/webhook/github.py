@@ -14,7 +14,6 @@ from qram.errors import ExpectedError
 from qram.git import Git
 from qram.globals import WORKDIR
 from qram.types import Hash
-from qram.web.webhook.base import EventHandler, Webhook
 from qram.web.events import (
     CheckCompletedEvent,
     EventQueue,
@@ -23,10 +22,9 @@ from qram.web.events import (
     QramEvent,
 )
 from qram.web.provider.github import Github
-
+from qram.web.webhook.base import EventHandler, Webhook
 
 logger = getLogger(__name__)
-
 
 
 class GithubWebhook(Webhook):
@@ -34,8 +32,9 @@ class GithubWebhook(Webhook):
         super().__init__()
         self.queue = queue
 
-    def verify_request(self, token: bytes|None, request: HTTPServerRequest) \
-            -> Result[Literal[True], ExpectedError]:
+    def verify_request(
+        self, token: bytes | None, request: HTTPServerRequest
+    ) -> Result[Literal[True], ExpectedError]:
         # nothing to verify if we don't have hmac signing key
         if not token:
             return Success(True)
@@ -57,7 +56,7 @@ class GithubWebhook(Webhook):
         logger.info('processing payload...')
         try:
             j = json_decode(request.body)
-        except Exception as e: # noqa: BLE001
+        except Exception as e:  # noqa: BLE001
             logger.warning(f'Failed to decode JSON from request body: {e}')
             return Failure(ExpectedError(f'Failed to decode JSON from request body: {e}'))
         event: QramEvent
@@ -82,7 +81,7 @@ class GithubWebhook(Webhook):
             event = CheckCompletedEvent(
                 repo=j['repository']['full_name'],
                 commit=Hash(cs['head_sha']),
-                good=(cs['conclusion'] == 'success')
+                good=(cs['conclusion'] == 'success'),
             ).caused_by(f'WEB/webhook CHECKSUITE {cs["id"]}')
             self.queue.put_nowait(event)
             logger.info(f'enqueued: {event}')
@@ -103,7 +102,6 @@ class GithubHandler(EventHandler):
 
     def __init__(self, api: Github) -> None:
         self.api = api
-
 
     def handle_initialization(self) -> Result[bool, ExpectedError]:
         logger.info('listing repos available to this installation')
@@ -136,11 +134,9 @@ class GithubHandler(EventHandler):
             logger.info(f'--- {repo_fn} cloned')
         return Success(True)
 
-
     def handle_stop(self) -> Result[bool, ExpectedError]:
         logger.info('some day...')
         return Success(True)
-
 
     def handle_pr_comment(self, event: 'PrCommentEvent') -> Result[bool, ExpectedError]:
         owner_repo = event.repo
@@ -173,7 +169,6 @@ class GithubHandler(EventHandler):
         logger.info('done')
         return Success(True)
 
-
     def handle_check_complete(self, event: 'CheckCompletedEvent') -> Result[bool, ExpectedError]:
         git = Git(WORKDIR / event.repo)
         # always fetch to ensure branches are updated
@@ -197,17 +192,13 @@ class GithubHandler(EventHandler):
 
 def is_created_pr_comment(j: dict[str, Any]) -> bool:
     return (
-        j.get('action') == 'created'
-        and 'pull_request' in j.get('issue', dict())
-        and 'comment' in j
+        j.get('action') == 'created' and 'pull_request' in j.get('issue', dict()) and 'comment' in j
     )
 
 
 def is_completed_checksuite(j: dict[str, Any]) -> bool:
-    return (
-        j.get('action') == 'completed'
-        and 'check_suite' in j
-    )
+    return j.get('action') == 'completed' and 'check_suite' in j
+
 
 def is_ping_event(j: dict[str, Any]) -> bool:
     return j.get('ping') is True
