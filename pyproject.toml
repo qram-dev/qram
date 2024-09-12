@@ -1,0 +1,37 @@
+[project]
+name = 'qram'
+version = '0.0'
+dependencies = []
+
+[project.scripts]
+qram = 'qram.__main__:_main'
+
+[project.optional-dependencies]
+dev = [
+    'pre-commit',
+    'mypy',
+    'pytest',
+    'ruff',
+]
+
+
+[tool.mypy]
+strict = true
+
+
+[tool.pytest.ini_options]
+# shorten pytest output and hide sourcecode excerpts
+addopts = '--tb=native'
+
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+select = [
+    'I', # isort
+    'F', # PyFlakes
+]
+
+[tool.ruff.format]
+quote-style = 'single'
