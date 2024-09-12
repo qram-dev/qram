@@ -1,0 +1,17 @@
+codecov:
+  notify:
+    wait_for_ci: false
+  require_ci_to_pass: false
+
+comment:
+  require_changes: false
+
+coverage:
+  range: 50..80
+  status:
+    project:
+      default:
+        informational: true
+    patch:
+      default:
+        informational: true

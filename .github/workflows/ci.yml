@@ -1,0 +1,156 @@
+name: ci
+
+on:
+  push:
+    branches: [ "main", "mq/queue" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  pre-commit-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: |
+          set -ex
+          python -m pip install --upgrade pip
+          pip install -e .[dev]
+      - name: pre-commit linters
+        run: |
+          set -ex
+          # GHA does not fetch branch names at checkout
+          git fetch
+          pre-commit run \
+            --verbose \
+            --show-diff-on-failure \
+            --all
+
+
+  tests:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - uses: extractions/setup-just@v2
+    - uses: actions/setup-python@v5
+      with:
+        python-version: "3.11"
+    - run: |
+        python -m pip install --upgrade pip
+        pip install -e .[dev]
+
+    - name: unit tests
+      run: just test unit
+
+    - name: integration tests
+      run: just test integration
+
+    - name: behavior tests
+      run: just test behavior
+
+    - uses: actions/upload-artifact@v4
+      with:
+        retention-days: 1
+        name: coverage-first
+        path: coverage.*
+        include-hidden-files: true
+        if-no-files-found: error
+
+  tests-e2e:
+    needs: tests
+    runs-on: ubuntu-latest
+    # e2e tests reconfigure github app webhook to use local tunnel,
+    # so no more than one instance of those should be running at once
+    concurrency: app-webhook-reconfiguration
+    # e2e will use secrets - run only on pushes or "trusted" PRs in same repo
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - uses: extractions/setup-just@v2
+    - uses: actions/setup-python@v5
+      with:
+        python-version: "3.11"
+    - run: |
+        set -ex
+        python -m pip install --upgrade pip
+        pip install -e .[dev]
+
+    - name: e2e tests
+      run: |
+        just test e2e
+
+    - uses: actions/upload-artifact@v4
+      with:
+        retention-days: 1
+        name: coverage-second
+        path: coverage.*
+        include-hidden-files: true
+        if-no-files-found: error
+
+
+  # upload coverage only if everything succeeds, to avoid weird temporary results when part of
+  # tests fail between PR updates
+  codecov:
+    needs:
+      - tests
+      - tests-e2e
+    # without `always()` will skip if one part is skipped; see:
+    # - https://github.com/actions/runner/issues/491
+    # - https://stackoverflow.com/questions/69354003
+    if: |
+      always() &&
+      needs.tests.result == 'success' && (
+        needs.tests-e2e.result == 'success'
+        || needs.tests-e2e.result == 'skipped'
+      )
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Download 1st part of coverage
+      uses: actions/download-artifact@v4
+      with:
+        name: coverage-first
+
+    - name: Download 2nd part of coverage
+      uses: actions/download-artifact@v4
+      if: needs.tests-e2e.result == 'success'
+      with:
+        name: coverage-second
+
+    - name: Upload unit
+      uses: codecov/codecov-action@v4
+      with:
+        token: ${{ secrets.CODECOV_TOKEN }}
+        files: coverage.unit.xml
+        flags: unit
+        fail_ci_if_error: true
+    - name: Upload integration
+      uses: codecov/codecov-action@v4
+      with:
+        token: ${{ secrets.CODECOV_TOKEN }}
+        files: coverage.integration.xml
+        flags: integration
+        fail_ci_if_error: true
+    - name: Upload behavior
+      uses: codecov/codecov-action@v4
+      with:
+        token: ${{ secrets.CODECOV_TOKEN }}
+        files: coverage.behavior.xml
+        flags: behavior
+        fail_ci_if_error: true
+    - name: Upload e2e
+      uses: codecov/codecov-action@v4
+      if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+      with:
+        token: ${{ secrets.CODECOV_TOKEN }}
+        files: coverage.e2e.xml
+        flags: e2e
+        fail_ci_if_error: true
