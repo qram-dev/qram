@@ -12,6 +12,7 @@ qram = 'qram.__main__:_main'
 
 [dependency-groups]
 dev = [
+    'basedpyright',
     'pre-commit',
     'mypy',
     'pytest',
@@ -33,10 +34,54 @@ addopts = '--tb=native'
 line-length = 100
 
 [tool.ruff.lint]
+flake8-quotes.inline-quotes = 'single'
 select = [
-    'I', # isort
-    'F', # PyFlakes
+    'ALL'
+]
+ignore = [
+    # weird formatting suggestions for todo's
+    'TD',
+    # docstrings; not really invested in those for now
+    'D',
+
+    'FIX001', # Line contains FIXME, consider resolving the issue
+    'FIX002', # Line contains TODO, consider resolving the issue
+    #         >> will consider later
+    'S101', # Use of `assert` detected
+    #       > asserts are nice
+    'C408', # Unnecessary `dict` call (rewrite as a literal)
+    #       > dict(x=1) > {'x':1}, too lazy for quotes!
+    'G004', # Logging statement uses f-string
+    #       > maybe, but fstrings everywhere are too-o-o convenient!
+    'T201', # `print` found
+    #       > ...and?
+    'PLR0911', # Too many return statements
+    'PLR0912', # branches
+    #          >> no such thing as too many!  :3
+    'BLE001', # Do not catch blind exception: `Exception`
+    #         >  but what if I have to?!
+    'ISC001', # Implicitly concatenated string literals on one line
+    'COM812', # Trailing comma missing
+    #         >> makes sense, but taken care of by formatter
+    'S603', # check for execution of untrusted input
+    'S607', # Starting a process with a partial executable path
+    #       >> TODO: these are essentially valid...
+    'INP001', # File is part of an implicit namespace package, add an __init__.py
+    #         > TODO: this one too...
 ]
 
 [tool.ruff.format]
 quote-style = 'single'
+
+
+[tool.basedpyright]
+# - repeats errors over mypy/ruff-validated code; plus pyright  is needed mostly
+# only for `match` exhaustiveness checks anyway...
+reportGeneralTypeIssues = false
+# - `Any` mestastasizes too greatly across 3rdparty
+reportAny = false
+# - it is not exactly a type checker duty to check for unused... also messes with tests
+reportUnusedParameter = false
+reportUnusedFunction = false
+# - contradicts to ruff's string rules
+reportImplicitStringConcatenation = false

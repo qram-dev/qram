@@ -7,7 +7,7 @@ test TYPE:
 	# NOTE: do not use `.coverage.whatever`, pytest will erase it
 	mv coverage.xml coverage.{{TYPE}}.xml
 
-lint: ruff mypy
+lint: ruff mypy pyright
 
 ruff:
 	uv run ruff check --fix .
@@ -17,3 +17,9 @@ format:
 
 mypy:
 	uv run mypy .
+
+pyright:
+	uv run basedpyright
+
+todo:
+	grep --recursive --perl-regexp 'TODO:|FIXME:' ./src/ ./test/
