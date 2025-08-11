@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-
 from argparse import ArgumentParser
 from dataclasses import dataclass
 
@@ -14,7 +12,7 @@ def parse_args() -> Args:
     return Args(**p.parse_args().__dict__)
 
 
-def main(args: Args) -> int:
+def main(args: Args) -> int:  # noqa: ARG001
     print('helo word')
     return 0
 
@@ -24,4 +22,6 @@ def _main() -> int:
 
 
 if __name__ == '__main__':
-    exit(_main())
+    import sys
+
+    sys.exit(_main())
