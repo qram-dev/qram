@@ -32,6 +32,12 @@ repos:
     args: [ruff, format, --diff]
     files: "^(src|tests)/"
 
+  - id: venv
+    alias: basedpyright
+    name: run venv-basedpyright
+    args: [basedpyright]
+    files: "^(src|tests)/"
+
 - repo: https://github.com/python-jsonschema/check-jsonschema
   rev: 0.35.0
   hooks:

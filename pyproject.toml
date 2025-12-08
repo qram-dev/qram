@@ -84,6 +84,7 @@ quote-style = 'single'
 reportGeneralTypeIssues = false
 # - `Any` mestastasizes too greatly across 3rdparty
 reportAny = false
+reportExplicitAny = false
 # - it is not exactly a type checker duty to check for unused... also messes with tests
 reportUnusedParameter = false
 reportUnusedFunction = false
