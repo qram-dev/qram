@@ -38,7 +38,7 @@ jobs:
     - uses: astral-sh/setup-uv@v7
       with:
         version: 0.8.x
-        python-version: 3.11
+        python-version: 3.14
     - run: uv sync
 
     - name: unit tests
@@ -74,12 +74,24 @@ jobs:
     - uses: astral-sh/setup-uv@v7
       with:
         version: 0.8.x
-        python-version: 3.11
+        python-version: 3.14
     - run: uv sync
 
     - name: e2e tests
       run: |
+        set -ex
+        T=$(just whtoken)
+        export QRAM_WEBHOOK_URL="https://webhook.site/$T/webhook"
+        just whcli $T 7890 &
+        just whwait $T 7890
         just test e2e
+      env:
+        QRAM_PROVIDER: github
+        QRAM_CORS_ORIGIN: http://webhook.site
+        QRAM_GITHUB_APP_ID: ${{ secrets.QRAM_GITHUB_APP_ID }}
+        QRAM_GITHUB_INSTALLATION_ID: ${{ secrets.QRAM_GITHUB_INSTALLATION_ID }}
+        QRAM_GITHUB_HMAC: ${{ secrets.QRAM_GITHUB_HMAC }}
+        QRAM_GITHUB_PEM: ${{ secrets.QRAM_GITHUB_PEM }}
 
     - uses: actions/upload-artifact@v5
       with:

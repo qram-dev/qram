@@ -23,3 +23,12 @@ pyright:
 
 todo:
 	grep --recursive --perl-regexp 'TODO:|FIXME:' ./src/ ./test/
+
+whtoken:
+	uv run ./scripts/get_whcli_token.py
+
+whcli TOKEN PORT:
+	npx "@webhooksite/cli@0.2.7" forward --token "{{TOKEN}}" --target "http://localhost:{{PORT}}"
+
+whwait TOKEN PORT:
+	uv run ./scripts/wait_for_whcli.py --token {{TOKEN}} --port {{PORT}}

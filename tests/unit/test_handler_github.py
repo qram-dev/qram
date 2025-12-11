@@ -14,7 +14,10 @@ from qram.web.github.handler import InvalidPayloadError
 
 @pytest.fixture
 def cfg() -> AppConfig:
-    return AppConfig.model_construct(github=CfgGithub.model_construct(hmac='secret'))
+    return AppConfig.model_construct(
+        cors_origin='',
+        github=CfgGithub.model_construct(hmac='secret'),
+    )
 
 
 @pytest.fixture

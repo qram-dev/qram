@@ -35,7 +35,7 @@ dev = [
 [tool.mypy]
 strict = true
 # lint everything there if no input provided
-files = ['src/', 'tests/']
+files = ['scripts/', 'src/', 'tests/']
 # search for imports there if input is provided (precommit)
 mypy_path = ["src/", "tests/"]
 
