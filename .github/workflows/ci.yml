@@ -10,19 +10,19 @@ jobs:
   pre-commit-lint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v6
+      - uses: actions/checkout@v6
+      - uses: astral-sh/setup-uv@v7
         with:
-          version: 0.8.x
-          python-version: "3.11"
+          version: 0.9.x
+          python-version: "3.14"
       - run: uv sync
       - name: pre-commit linters
         run: |
-          source .venv/bin/activate
           set -ex
+          echo '.venv/' > .pre-commit-venv
           # GHA does not fetch branch names at checkout
           git fetch
-          pre-commit run \
+          uv run pre-commit run \
             --verbose \
             --show-diff-on-failure \
             --all
@@ -32,10 +32,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
 
     - uses: extractions/setup-just@v3
-    - uses: astral-sh/setup-uv@v6
+    - uses: astral-sh/setup-uv@v7
       with:
         version: 0.8.x
         python-version: 3.11
@@ -50,7 +50,7 @@ jobs:
     - name: behavior tests
       run: just test behavior
 
-    - uses: actions/upload-artifact@v4
+    - uses: actions/upload-artifact@v5
       with:
         retention-days: 1
         name: coverage-first
@@ -68,10 +68,10 @@ jobs:
     if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
 
     - uses: extractions/setup-just@v3
-    - uses: astral-sh/setup-uv@v6
+    - uses: astral-sh/setup-uv@v7
       with:
         version: 0.8.x
         python-version: 3.11
@@ -81,7 +81,7 @@ jobs:
       run: |
         just test e2e
 
-    - uses: actions/upload-artifact@v4
+    - uses: actions/upload-artifact@v5
       with:
         retention-days: 1
         name: coverage-second
@@ -108,42 +108,42 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
 
     - name: Download 1st part of coverage
-      uses: actions/download-artifact@v4
+      uses: actions/download-artifact@v5
       with:
         name: coverage-first
 
     - name: Download 2nd part of coverage
-      uses: actions/download-artifact@v4
+      uses: actions/download-artifact@v5
       if: needs.tests-e2e.result == 'success'
       with:
         name: coverage-second
 
     - name: Upload unit
-      uses: codecov/codecov-action@v4
+      uses: codecov/codecov-action@v5
       with:
         token: ${{ secrets.CODECOV_TOKEN }}
         files: coverage.unit.xml
         flags: unit
         fail_ci_if_error: true
     - name: Upload integration
-      uses: codecov/codecov-action@v4
+      uses: codecov/codecov-action@v5
       with:
         token: ${{ secrets.CODECOV_TOKEN }}
         files: coverage.integration.xml
         flags: integration
         fail_ci_if_error: true
     - name: Upload behavior
-      uses: codecov/codecov-action@v4
+      uses: codecov/codecov-action@v5
       with:
         token: ${{ secrets.CODECOV_TOKEN }}
         files: coverage.behavior.xml
         flags: behavior
         fail_ci_if_error: true
     - name: Upload e2e
-      uses: codecov/codecov-action@v4
+      uses: codecov/codecov-action@v5
       if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
       with:
         token: ${{ secrets.CODECOV_TOKEN }}
