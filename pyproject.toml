@@ -21,9 +21,12 @@ qram = 'qram.__main__:_main'
 [dependency-groups]
 dev = [
     'basedpyright',
+    # dependency of fastapi, but needed only for testclient
+    'httpx',
     'mypy',
     'pre-commit',
     'pytest',
+    'pytest-asyncio',
     'pytest-cov',
     'ruff',
 ]
@@ -40,6 +43,8 @@ mypy_path = ["src/", "tests/"]
 [tool.pytest.ini_options]
 # shorten pytest output and hide sourcecode excerpts
 addopts = '--tb=short'
+# to avoid adding @pytest.mark.asyncio to all async tests
+asyncio_mode = 'auto'
 
 
 [tool.ruff]

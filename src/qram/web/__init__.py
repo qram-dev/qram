@@ -1,3 +1,9 @@
+from abc import ABC, abstractmethod
+
+from fastapi import Request
+from fastapi.responses import JSONResponse
+
+
 def get_cors_headers(cors_origin: str, additional_headers: list[str]) -> dict[str, str]:
     """Generate CORS headers from config.
 
@@ -18,3 +24,11 @@ def get_cors_headers(cors_origin: str, additional_headers: list[str]) -> dict[st
         headers['Access-Control-Allow-Headers'] = ', '.join(additional_headers)
 
     return headers
+
+
+class WebhookHandlerBase(ABC):
+    @abstractmethod
+    def get_cors_headers(self) -> dict[str, str]: ...
+
+    @abstractmethod
+    async def handle(self, request: Request) -> JSONResponse: ...
