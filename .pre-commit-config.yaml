@@ -23,7 +23,7 @@ repos:
   - id: venv
     alias: ruff-check
     name: run venv-ruff-check
-    args: [ruff, check, --fix]
+    args: [ruff, check, --fix, --diff]
     files: "^(src|tests)/"
 
   - id: venv
