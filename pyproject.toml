@@ -72,6 +72,13 @@ ignore = [
     #       >> TODO: these are essentially valid...
     'INP001', # File is part of an implicit namespace package, add an __init__.py
     #         > TODO: this one too...
+    'ANN201', # Function missing return type annotation
+    #         > should be caught by mypy anyway
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*/test_*.py" = [
+    "PLR2004", # magic numbers
 ]
 
 [tool.ruff.format]
