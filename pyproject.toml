@@ -23,6 +23,10 @@ dev = [
 
 [tool.mypy]
 strict = true
+# lint everything there if no input provided
+files = ['src/', 'tests/']
+# search for imports there if input is provided (precommit)
+mypy_path = ["src/", "tests/"]
 
 
 [tool.pytest.ini_options]
@@ -80,6 +84,7 @@ quote-style = 'single'
 reportGeneralTypeIssues = false
 # - `Any` mestastasizes too greatly across 3rdparty
 reportAny = false
+reportExplicitAny = false
 # - it is not exactly a type checker duty to check for unused... also messes with tests
 reportUnusedParameter = false
 reportUnusedFunction = false
