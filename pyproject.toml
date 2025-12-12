@@ -1,7 +1,15 @@
 [project]
+requires-python = '>=3.14'
 name = 'qram'
 version = '0.0'
-dependencies = []
+dependencies = [
+    'fastapi',
+    'pydantic',
+    'python-dotenv',
+    'pyjwt[crypto]',
+    'httpx',
+    'uvicorn',
+]
 
 [build-system]
 requires = ["uv_build>=0.8.8,<0.9.0"]
@@ -13,9 +21,12 @@ qram = 'qram.__main__:_main'
 [dependency-groups]
 dev = [
     'basedpyright',
-    'pre-commit',
+    # dependency of fastapi, but needed only for testclient
+    'httpx',
     'mypy',
+    'pre-commit',
     'pytest',
+    'pytest-asyncio',
     'pytest-cov',
     'ruff',
 ]
@@ -24,14 +35,16 @@ dev = [
 [tool.mypy]
 strict = true
 # lint everything there if no input provided
-files = ['src/', 'tests/']
+files = ['scripts/', 'src/', 'tests/']
 # search for imports there if input is provided (precommit)
 mypy_path = ["src/", "tests/"]
 
 
 [tool.pytest.ini_options]
 # shorten pytest output and hide sourcecode excerpts
-addopts = '--tb=native'
+addopts = '--tb=short'
+# to avoid adding @pytest.mark.asyncio to all async tests
+asyncio_mode = 'auto'
 
 
 [tool.ruff]
@@ -47,6 +60,8 @@ ignore = [
     'TD',
     # docstrings; not really invested in those for now
     'D',
+    # fascinating lint about obscure type hinting issue; likely won't run into it
+    'TC',
 
     'FIX001', # Line contains FIXME, consider resolving the issue
     'FIX002', # Line contains TODO, consider resolving the issue
@@ -72,6 +87,13 @@ ignore = [
     #       >> TODO: these are essentially valid...
     'INP001', # File is part of an implicit namespace package, add an __init__.py
     #         > TODO: this one too...
+    'ANN201', # Function missing return type annotation
+    #         > should be caught by mypy anyway
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*/test_*.py" = [
+    "PLR2004", # magic numbers
 ]
 
 [tool.ruff.format]
